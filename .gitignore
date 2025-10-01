@@ -1,0 +1,15 @@
+*.exe
+*.dll
+
+_*
+!__init__.py
+
+*.bts
+*.u
+*.v
+*.w
+
+*.so
+*.dylib
+
+*.ipynb_*
