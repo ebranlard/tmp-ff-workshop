@@ -14,6 +14,7 @@ import re
 # --- Fast libraries
 from openfast_toolbox.io.fast_input_file import FASTInputFile
 from openfast_toolbox.io.fast_output_file import FASTOutputFile
+from openfast_toolbox.tools.strings import FAIL, OK
 
 FAST_EXE='openfast'
 
@@ -72,10 +73,10 @@ def run_cmds(inputfiles, exe, parallel=True, showOutputs=True, nCores=None, show
     # --- Giving a summary
     if len(Failed)==0:
         if verbose:
-            print('[ OK ] All simulations run successfully.')
+            OK('All simulations run successfully.')
         return True, Failed
     else:
-        print('[FAIL] {}/{} simulations failed:'.format(len(Failed),len(inputfiles)))
+        FAIL('{}/{} simulations failed:'.format(len(Failed),len(inputfiles)))
         for p in Failed:
             print('      ',p.input_file)
         return False, Failed
@@ -117,12 +118,20 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
     """ 
     Run one or several batch files
     TODO: error handling, status, parallel
+
+    showOutputs=True => stdout & stderr printed live
+    showOutputs=False => stdout captured internally, stderr printed live
+
+    For output to show in a Jupyter notebook, we cannot use stdout=None, or stderr=None, we need to use Pipe
+
     """
 
     if showOutputs:
         STDOut= None
     else:
-        STDOut= open(os.devnull, 'w') 
+        #STDOut= open(os.devnull, 'w') 
+        #STDOut= subprocess.DEVNULL
+        STDOut= subprocess.PIPE
 
     curDir = os.getcwd()
     print('Current directory', curDir)
@@ -143,14 +152,38 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
             return 0
         else:
             # --- We wait for outputs
+            stdout_data = None
             try:
                 os.chdir(batchDir)
                 batchDir  = os.path.join(curDir, batchDir)
-                returncode=subprocess.call([batchfileRel], stdout=STDOut, stderr=subprocess.STDOUT, shell=shell)
+                # --- Option 1
+                #returncode=subprocess.call([batchfileRel], stdout=STDOut, stderr=subprocess.STDOUT, shell=shell)
+
+                # --- Option 2
+                # Use Popen so we can print outputs live
+                #proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell, text=True )
+                proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell, text=True )
+                # Print or store stdout
+                if showOutputs:
+                    for line in proc.stdout:
+                        print(line, end='')
+                else:
+                    stdout_data = proc.stdout.read()  # read everything
+                # ALWAYS Print errors output line by line
+                for line in proc.stderr:
+                    print(line, end='')
+                proc.wait()
+                returncode = proc.returncode
+                # Dump stdout if there was an error
+                if returncode != 0 and stdout_data:
+                    print("\n--- Captured stdout ---")
+                    print(stdout_data)
+
             except:
                 returncode=-10
             os.chdir(curDir)
             return returncode
+
 
     shell=False
     if isinstance(batchfiles,list):
@@ -162,20 +195,20 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
                 Failed.append(batchfile)
         if len(Failed)>0:
             returncode=1
-            print('[FAIL] {}/{} Batch files failed.'.format(len(Failed),len(batchfiles)))
+            FAIL('{}/{} Batch files failed.'.format(len(Failed),len(batchfiles)))
             print(Failed)
         else:
             returncode=0
             if verbose:
-                print('[ OK ] {} batch filse ran successfully.'.format(len(batchfiles)))
+                OK('{} batch files ran successfully.'.format(len(batchfiles)))
         # TODO
     else:
         returncode = runOneBatch(batchfiles)
         if returncode==0:
             if verbose:
-                print('[ OK ] Batch file ran successfully.')
+                OK('Batch file ran successfully.')
         else:
-            print('[FAIL] Batch file failed:',batchfiles)
+            FAIL('Batch file failed: '+str(batchfiles))
 
     return returncode
 

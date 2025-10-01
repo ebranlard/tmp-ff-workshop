@@ -3,6 +3,10 @@ import os
 from welib.essentials import *
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation, check_files_exist
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup
+
+runTurbSim=True
+
+
 # -----------------------------------------------------------------------------
 # ------------------------ General parameters ---------------------------------
 # -----------------------------------------------------------------------------
@@ -20,7 +24,7 @@ tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim exec
 
 templatePath = './template/'
 templateFiles = {
-    'FFfilename'              : 'Main.fstf',
+    'FFfilename'              : 'FF.fstf',
     'turbfilename'            : 'WT.T',
     "EDfilename"              : 'ED.T',
     'SrvDfilename'            : 'SvD.T',
@@ -57,8 +61,8 @@ wts = {
 }
 
 # plotFastFarmSetup(fastFarmFile, grid=True, fig=None, D=None, plane='XY', hubHeight=None, showLegend=True):
-plotFastFarmSetup(os.path.join(templatePath, templateFiles['FFfilename']))
-plt.show()
+# plotFastFarmSetup(os.path.join(templatePath, templateFiles['FFfilename']))
+# plt.show()
 
 # -----------------------------------------------------------------------------
 # ------------------- Inflow conditions and input files -----------------------
@@ -84,11 +88,11 @@ inflow_deg = [0]
 # -----------------------------------------------------------------------------
 # ----------- Low- and high-res boxes parameters
 # High-res boxes settings
-dt_high     =  0.25               # sampling frequency of high-res files
+dt_high     =  0.50               # sampling frequency of high-res files
 ds_high     =  5                  # dx, dy, dz of high-res files
 extent_high =  1.2                # extent in y and x for each turbine, in D
 # Low-res boxes settings
-dt_low      = 1.0                 # sampling frequency of low-res files
+dt_low      = 2.0                 # sampling frequency of low-res files
 ds_low      = 25                  # dx, dy, dz of low-res files
 extent_low  = [1.5,2.5,1.5,1.5,2] # extent in [xmin,xmax,ymin,ymax,zmax], in D
 
@@ -114,32 +118,38 @@ ffcase.copyTurbineFilesForEachCase()
 # # ---------------------- TurbSim setup and execution --------------------------
 # # -----------------------------------------------------------------------------
 # # ----------- TurbSim low-res setup
-ffcase.TS_low_setup()
+# ffcase.TS_low_setup()
 # ----------- Prepare script for submission
-slurm_TS_low  = './SampleFiles/runAllLowBox.sh'
-ffcase.TS_low_slurm_prepare(slurm_TS_low)
-ffcase.TS_low_batch_prepare(run=True)
+ffcase.TS_low_batch_prepare()
+if runTurbSim:
+    ffcase.TS_low_batch_run(showOutputs=True)
 
 # ----------- Submit the low-res script (can be done from the command line)
 #ffcase.TS_low_slurm_submit()
 # slurm_FF_single         = 'C:/W0/ff_walkthrough/SampleFiles/runFASTFarm_cond0_case0_seed0.sh'
 
-
-# ----------- TurbSim high-res setup
-ffcase.plot()
-print('>>> HIGH SETUP')
-ffcase.TS_high_setup()
-# # # ----------- Prepare script for submission
-# slurm_TS_high           = './SampleFiles/runAllHighBox.sh'
-# ffcase.TS_high_slurm_prepare(slurm_TS_high)
-ffcase.TS_high_batch_prepare(run=True) #, run_if_ext_missing='.bts', discard_if_ext_present=None)
-# ----------- Submit the high-res script (can be done from the command line)
-
-
-#ffcase.TS_high_slurm_submit()
-
-
-# ----------- FAST.Farm setup
-ffcase.FF_setup()
+# 
+# # ----------- TurbSim high-res setup
+# ffcase.plot()
+# print('>>> HIGH SETUP')
+# ffcase.TS_high_setup()
+# ffcase.TS_high_batch_prepare(run=runTurbSim) #, run_if_ext_missing='.bts', discard_if_ext_present=None)
+# 
+# 
+# 
+# 
+# 
+# # ----------- FAST.Farm setup
+# ffcase.FF_setup()
 
 plt.show()
+
+
+
+# ----------- Submit the high-res script (can be done from the command line)
+# slurm_TS_low  = './SampleFiles/runAllLowBox.sh'
+# ffcase.TS_low_slurm_prepare(slurm_TS_low)
+#  # ----------- Prepare script for submission
+# slurm_TS_high           = './SampleFiles/runAllHighBox.sh'
+# # ffcase.TS_high_slurm_prepare(slurm_TS_high)
+# #ffcase.TS_high_slurm_submit()

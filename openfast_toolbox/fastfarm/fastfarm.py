@@ -1,11 +1,14 @@
+import matplotlib.pyplot as plt
 import os
 import glob
 import numpy as np
 import pandas as pd
+
 from openfast_toolbox.io.fast_input_file import FASTInputFile
 from openfast_toolbox.io.fast_output_file import FASTOutputFile
 from openfast_toolbox.io.turbsim_file import TurbSimFile
 import openfast_toolbox.postpro as fastlib
+from openfast_toolbox.tools.strings import INFO, FAIL, OK, WARN, print_bold
 
 # --------------------------------------------------------------------------------}
 # --- Small helper functions
@@ -401,28 +404,88 @@ def setFastFarmOutputs(fastFarmFile, OutListT1):
     fst.write(fastFarmFile)
 
 
-def plotFastFarmSetup(fastFarmFile, grid=True, fig=None, D=None, plane='XY', hubHeight=None, showLegend=True):
-    """ """
-    import matplotlib.pyplot as plt
+def col(i): 
+    Colrs=plt.rcParams['axes.prop_cycle'].by_key()['color']
+    return Colrs[ np.mod(i,len(Colrs)) ]
 
-    def col(i): 
-        Colrs=plt.rcParams['axes.prop_cycle'].by_key()['color']
-        return Colrs[ np.mod(i,len(Colrs)) ]
-    def boundingBox(x, y):
-        """ return x and y coordinates to form a box marked by the min and max of x and y"""
-        x_bound = [x[0],x[-1],x[-1],x[0] ,x[0]]
-        y_bound = [y[0],y[0] ,y[-1],y[-1],y[0]]
-        return x_bound, y_bound
+def plotFastFarmWTs(wts, fig=None):
+    if fig is None:
+        fig = plt.figure(figsize=(13.5,8))
+        ax  = fig.add_subplot(111,aspect="equal")
+
+    Dmax = -100
+    for iwt, (k,wt) in enumerate(wts.items()):
+        if 'D' in wt:
+            Dmax = max(Dmax, wt['D'])
+        name = wt['name']  if 'name' in wt else "WT{}".format(iwt+1)
+        ax.plot(wt['x'], wt['y'], 'x', ms=8, mew=2, c=col(iwt), label=name)
+    xmin, xmax = ax.get_xlim()
+    ymin, ymax = ax.get_ylim()
+
+    D = np.abs(Dmax)
+    ax.set_xlim(xmin - D, xmax + D)
+    ax.set_ylim(ymin - D, ymax + D)
+    ax.legend()
+    ax.grid()
+    ax.set_xlabel("x [m]")
+    ax.set_ylabel("y [m]")
+    fig.tight_layout
+
+    return fig
+
+# --- BoundinBox
+def boundingBox(x, y):
+    """ return x and y coordinates to form a box marked by the min and max of x and y"""
+    x_bound = [x[0],x[-1],x[-1],x[0] ,x[0]]
+    y_bound = [y[0],y[0] ,y[-1],y[-1],y[0]]
+    return x_bound, y_bound
+
+def bb_bounds(x_bound, y_bound):
+    """Extract min/max from the polygon returned by boundingBox"""
+    return min(x_bound), max(x_bound), min(y_bound), max(y_bound)
+
+def bb_contains(bb_low, bb_high):
+    x_low_min, x_low_max, y_low_min, y_low_max = bb_bounds(*bb_low)
+    x_high_min, x_high_max, y_high_min, y_high_max = bb_bounds(*bb_high)
+
+    return (x_low_min <= x_high_min and
+            y_low_min <= y_high_min and
+            x_low_max >= x_high_max and
+            y_low_max >= y_high_max)
 
 
-    # --- Read FAST.Farm input file
-    fst=FASTInputFile(fastFarmFile)
+def plotFastFarmSetup(ff, grid=True, fig=None, D=None, plane='XY', hubHeight=None, showLegend=True):
+    """ 
+    Plot a FAST.Farm setup.
+    The first argument may have different type:
+       - a string indicating the fastFarm input file
+       - a FASTInputFile object, containing a FASTFarm file
+       - a dict of wts
+       - an object of FASTFarmCaseCreation
+    """
+    from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation
+
+
+    # --- accept differnt kind of inputs
+    if isinstance(ff, str):
+        # --- Read FAST.Farm input file
+        fst=FASTInputFile(ff)
+    elif isinstance(ff, FASTInputFile):
+        fst = ff
+    elif isinstance(ff, FFCaseCreation):
+        ffcase = fastfarm_input
+        return 
+    elif isinstance(ff, dict):
+        if 'x' in ff[list(ff.keys())[0]].keys():
+            return plotFastFarmWTs(ff)
+    else:
+        raise NotImplementedError('Unsopported input type for argument ff')
 
     if fig is None:
         fig = plt.figure(figsize=(13.5,8))
         ax  = fig.add_subplot(111,aspect="equal")
 
-    WT=fst['WindTurbines']
+    WT = fst['WindTurbines']
     xWT = WT[:,0].astype(float)
     yWT = WT[:,1].astype(float)
     zWT = yWT*0 
@@ -439,7 +502,7 @@ def plotFastFarmSetup(fastFarmFile, grid=True, fig=None, D=None, plane='XY', hub
     else:
         raise Exception("Plane should be 'XY' 'XZ' or 'YZ'")
 
-    if fst['Mod_AmbWind'] == 2:
+    if fst['Mod_AmbWind'] in [2, 3]:
         x_low = fst['X0_Low'] + np.arange(fst['NX_Low']+1)*fst['DX_Low']
         y_low = fst['Y0_Low'] + np.arange(fst['NY_Low']+1)*fst['DY_Low']
         z_low = fst['Z0_Low'] + np.arange(fst['NZ_Low']+1)*fst['DZ_Low']
@@ -483,6 +546,9 @@ def plotFastFarmSetup(fastFarmFile, grid=True, fig=None, D=None, plane='XY', hub
             if grid:
                 ax.vlines(x_high, ymin=y_high[0], ymax=y_high[-1], ls='--', lw=0.4, color=col(wt))
                 ax.hlines(y_high, xmin=x_high[0], xmax=x_high[-1], ls='--', lw=0.4, color=col(wt))
+
+            if not bb_contains((x_bound_low, y_bound_low), (x_bound_high, y_bound_high)):
+                FAIL(f'plotFastFarmSetup: Bounding box of high res grid for turbine {wt+1} not fullly contained in low res grid.')
 
     # Plot turbines
     for wt in range(len(xWT)):

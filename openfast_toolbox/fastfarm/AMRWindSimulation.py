@@ -383,7 +383,7 @@ class AMRWindSimulation:
         # For curled wake model: ds_lr_max = self.cmeander_max * self.dt_low_les * self.vhub**2 / 5
 
         ds_low_les = getMultipleOf(ds_lr_max, multipleof=self.ds_hr) 
-        if self.verbose>0: INFO(f"Low-res spatial resolution (ds_low) should be >={ds_lr_max:.2f} m. To be a multiple of ds_high"\
+        if self.verbose>0: INFO(f"Low-res spatial resolution (ds_low) should be >={ds_lr_max:.2f} m.\nTo be a multiple of ds_high"\
               f"={self.ds_hr} m, we pick ds_low={ds_low_les} m")
 
         #self.ds_lr = self.ds_low_les

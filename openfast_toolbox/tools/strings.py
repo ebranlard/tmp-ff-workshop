@@ -107,23 +107,23 @@ def cprint(msg, color=None, attrs=None, file=sys.stdout, end='\n'):
 # --- Convenient functions
 # -------------------------------------------------------------------------
 def print_bold(msg, **kwargs):
-    cprint(msg, attrs=['bold'])
+    cprint(msg, attrs=['bold'], **kwargs)
 
-def FAIL(msg, label='[FAIL] '):
+def FAIL(msg, label='[FAIL] ', **kwargs):
     msg = ('\n'+ ' ' * len(label)).join( (label+msg).split('\n') ) # Indending new lines
-    cprint(msg, color='red', attrs=['bold'], file=sys.stderr)
+    cprint(msg, color='red', attrs=['bold'], file=sys.stderr, **kwargs)
 
-def WARN(msg, label='[WARN] '):
+def WARN(msg, label='[WARN] ', **kwargs):
     msg = ('\n'+ ' ' * len(label)).join( (label+msg).split('\n') ) # Indending new lines
-    cprint(msg, color='yellow', attrs=['bold'])
+    cprint(msg, color='yellow', attrs=['bold'], **kwargs)
 
-def OK(msg, label='[ OK ] '):
+def OK(msg, label='[ OK ] ', **kwargs):
     msg = ('\n'+ ' ' * len(label)).join( (label+msg).split('\n') ) # Indending new lines
-    cprint(msg, color='green', attrs=['bold'])
+    cprint(msg, color='green', attrs=['bold'], **kwargs)
 
-def INFO(msg, label='[INFO] '):
+def INFO(msg, label='[INFO] ', **kwargs):
     msg = ('\n'+ ' ' * len(label)).join( (label+msg).split('\n') ) # Indending new lines
-    cprint(msg)
+    cprint(msg, **kwargs)
 
 
 # --------------------------------------------------------------------------------

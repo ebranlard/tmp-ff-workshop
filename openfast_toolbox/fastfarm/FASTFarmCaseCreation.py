@@ -2,16 +2,19 @@ import pandas as pd
 import os, sys, shutil
 import subprocess
 import numpy as np
-import xarray as xr
 np.random.seed(12) # For reproducibility (e.g. random azimuth)
+
+from openfast_toolbox.tools.strings import INFO, FAIL, OK, WARN, print_bold
 
 from openfast_toolbox.io import FASTInputDeck, FASTInputFile, FASTOutputFile, TurbSimFile, VTKFile
 from openfast_toolbox.io.rosco_discon_file import ROSCODISCONFile
 from openfast_toolbox.fastfarm import writeFastFarm, plotFastFarmSetup
-#, fastFarmTurbSimExtent, plotFastFarmSetup
 from openfast_toolbox.fastfarm.TurbSimCaseCreation import TSCaseCreation, writeTimeSeriesFile
 
-from openfast_toolbox.tools.strings import INFO, FAIL, OK, WARN, print_bold
+try:
+    import xarray as xr
+except ImportError:
+    FAIL('The python package xarray is not installed. FFCaseCreation will not work fully.\nPlease install it using:\n`pip install xarray`')
 
 
 _MOD_WAKE_STR = ['','polar', 'curled', 'cartesian']
@@ -301,7 +304,7 @@ class FFCaseCreation:
 
         if self.verbose>0: print(f'Checking if we can create symlinks...', end='\r')
         self._can_create_symlinks = can_create_symlink()
-        if self.verbose>0: print(f'Answer: {self._can_create_symlinks}')
+        if self.verbose>0: print(f'Checking if we can create symlinks... {self._can_create_symlinks}')
 
         if self.verbose>0: print(f'Setting rotor parameters...', end='\r')
         self._setRotorParameters()
@@ -409,6 +412,11 @@ class FFCaseCreation:
             elif not os.path.isfile(self.tsbin):
                 raise ValueError (f'The TurbSim binary given does not exist: {self.tsbin}.')
 
+
+
+    # --------------------------------------------------------------------------------}
+    # --- Object properties
+    # --------------------------------------------------------------------------------{
     @property
     def D(self): return self.wts[0]['D']
 
@@ -426,6 +434,52 @@ class FFCaseCreation:
 
     @property 
     def Cmeander(self): return self.wts[0]['Cmeander']
+
+    @property
+    def FFFiles(self):
+        files = []
+        for cond in range(self.nConditions):
+            for case in range(self.nCases):
+                for seed in range(self.nSeeds):
+                    ff_file = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', self.outputFFfilename)
+                    files.append(ff_file)
+        return files
+
+    def files(self, module='AD'):
+        # TODO These files shoule be stored internally when created for easy access
+
+        # Modules that don't vary
+        modules_MAP={
+                'AD':self.ADfilename,
+                'ED':self.EDfilename,
+                'FST':self.turbfilename,
+                'SrvD':self.SrvDfilename,
+                } # TODO use an internal dictionary like that for all the template files..
+        basename = modules_MAP[module]
+        files=[]
+        if module in ['ED', 'SrvD' ,'FST']:
+            ext='.fst' if module=='FST' else '.dat'
+            for cond in range(self.nConditions):
+                for case in range(self.nCases):
+                    for turb in range(self.nTurbines):
+                        files.append(os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'{basename}{turb+1}{ext}'))
+        else:
+            for cond in range(self.nConditions):
+                for case in range(self.nCases):
+                    files.append( os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], basename) )
+        return files
+
+    @property
+    def high_res_bts(self):
+        files = []
+        highBoxesCaseDirList = [self.caseDirList[c] for c in self.allHighBoxCases.case.values]
+        for condDir in self.condDirList:
+            for case in highBoxesCaseDirList:
+                for seed in range(self.nSeeds):
+                    for t in range(self.nTurbines):
+                        dirpath = os.path.join(self.path, condDir, case, f"Seed_{seed}/TurbSim")
+                        files.append(f'{dirpath}/HighT{t+1}.bts')
+        return files
 
 
     def _checkInputs(self):
@@ -764,6 +818,7 @@ class FFCaseCreation:
 
 
     def copyTurbineFilesForEachCase(self, writeFiles=True):
+        INFO('Copying OpenFAST files from template to simulation directory')
 
         if not self.templateFilesCreatedBool:
             raise SyntaxError('Template files not set. Call `setTemplateFilename` before calling this function.')
@@ -924,7 +979,7 @@ class FFCaseCreation:
                         if 'Skew_Mod' in self.AeroDynFile.keys():
                             self.AeroDynFile['Skew_Mod'] = 1
                             self.AeroDynFile['SkewMomCorr'] = True
-                        self.AeroDynFile['BEM_Mod'] = 2
+                        #self.AeroDynFile['BEM_Mod'] = 2 # TODO let the user decide. Commented out by Emmanuel
                         self.AeroDynFile['IntegrationMethod'] = 4
                         # Adjust the Airfoil path to point to the templatePath (1:-1 to remove quotes)
                         self.AeroDynFile['AFNames'] = [f'"{os.path.join(self.templatePathabs, "Airfoils", i[1:-1].split("Airfoils/", 1)[-1])}"' 
@@ -940,7 +995,7 @@ class FFCaseCreation:
                     if self.hasSrvD:
                         self.ServoDynFile['YawNeut']      = yaw_deg_ + yaw_mis_deg_
                         self.ServoDynFile['VSContrl']     = 5
-                        self.ServoDynFile['DLL_FileName'] = f'"{self.DLLfilepath}{t+1}{self.DLLext}"'
+                        self.ServoDynFile['DLL_FileName'] = f'"{self.DLLfilepath}{t+1}.{self.DLLext}"'
                         self.ServoDynFile['DLL_InFile']   = f'"{self.controllerInputfilename}"'
                         if writeFiles:
                             self.ServoDynFile.write( os.path.join(currPath,f'{self.SrvDfilename}{t+1}_mod.dat'))
@@ -1058,7 +1113,8 @@ class FFCaseCreation:
                 print(f"         Check them manually. This shouldn't occur. Consider finding ")
                 print(f"         and fixing the bug and submitting a PR.")
             else:
-                if self.verbose>0: print(f'Passed check: all files were copied successfully.')
+                #if self.verbose>0: OK(f'All files were copied successfully.')
+                OK(f'All OpenFAST files were copied successfully.')
 
 
     def _were_all_turbine_files_copied(self):
@@ -1215,6 +1271,7 @@ class FFCaseCreation:
         setTemplateFilename(templatePath, templateFiles)
 
         """
+        INFO('Reading and checking template files')
 
         # Set default values
         #TODO TODO TODO Replace this by a dictionary so that we can for loop over it more easily
@@ -1416,9 +1473,9 @@ class FFCaseCreation:
 
             elif key == 'libdisconfilepath':
                 ext = os.path.splitext(value)[1].lower()
-                if ext not in ['.so', '.dll']:
-                    raise ValueError(f'The libdiscon file should have extension ".so" or ".dll"')
-                self.DLLext = ext 
+                if ext not in ['.so', '.dll', '.dylib']:
+                    raise ValueError(f'The libdiscon file should have extension ".so", ".dll", or ".dylib"')
+                self.DLLext = ext[1:] # No dot
                 if os.path.isabs(value):
                     self.libdisconfilepath = value
                 else:
@@ -1499,16 +1556,18 @@ class FFCaseCreation:
         # Make copies of libdiscon for each turbine if they don't exist
         copied = False
         for t in range(self.nTurbines):
+            # NOTE: libdisconfilepath contains extension
+            DLL_parentDir = os.path.dirname(self.libdisconfilepath).replace('\\','/')
             libdisconfilename = os.path.splitext(os.path.basename(self.libdisconfilepath))[0]
-            currLibdiscon = os.path.join(os.path.dirname(self.libdisconfilepath), f'{libdisconfilename}.T{t+1}.{self.DLLext}')
-            self.DLLfilepath = os.path.join(os.path.dirname(self.libdisconfilepath), f'{libdisconfilename}.T').replace('\\','/')
+            self.DLLfilepath = os.path.join(DLL_parentDir, f'{libdisconfilename}.T') # No extension
+            currLibdiscon    = os.path.join(DLL_parentDir, f'{libdisconfilename}.T{t+1}.{self.DLLext}')
             if not os.path.isfile(currLibdiscon):
-                if self.verbose>0: print(f'    Creating a copy of the controller {libdisconfilename}{self.DLLext} in {currLibdiscon}')
+                if self.verbose>0: print(f'    Creating a copy of the controller {libdisconfilepath} in {currLibdiscon}')
                 shutil.copy2(self.libdisconfilepath, currLibdiscon)
                 copied=True
         
         if copied == False and self.verbose>0:
-            print(f'    Copies of the controller {libdisconfilename}.T[1-{self.nTurbines}]{self.DLLext} already exists in {os.path.dirname(self.libdisconfilepath)}. Skipped step.')
+            print(f'    Copies of the controller {libdisconfilename}.T[1-{self.nTurbines}].{self.DLLext} already exists in {os.path.dirname(self.libdisconfilepath)}. Skipped step.')
 
 
     def _open_template_files(self):
@@ -1562,7 +1621,7 @@ class FFCaseCreation:
             self.nConditions = len(self.vhub) * len(self.shear) * len(self.TIvalue)
 
             if self.verbose>1: print(f'The length of vhub, shear, and TI are different. Assuming sweep on each of them.')
-            if self.verbose>0: print(f'Creating {self.nConditions} conditions')
+            if self.verbose>0: print(f'Creating {self.nConditions} condition(s)')
     
             # Repeat arrays as necessary to build xarray Dataset
             combination = np.vstack(list(itertools.product(self.vhub,self.shear,self.TIvalue)))
@@ -1813,9 +1872,11 @@ class FFCaseCreation:
 
 
     def TS_low_setup(self, writeFiles=True, runOnce=False):
+        INFO('Preparing TurbSim low resolution input files.')
         # Loops on all conditions/seeds creating Low-res TurbSim box  (following openfast_toolbox/openfast_toolbox/fastfarm/examples/Ex1_TurbSimInputSetup.py)
 
         boxType='lowres'
+        lowFilesName = []
         for cond in range(self.nConditions):
             for seed in range(self.nSeeds):
                 seedPath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
@@ -1858,14 +1919,20 @@ class FFCaseCreation:
                 Lowinp['PLExp']     = shear_
                 #Lowinp['latitude']  = latitude  # Not used when IECKAI model is selected.
                 Lowinp['InCDec1']   = Lowinp['InCDec2'] = Lowinp['InCDec3'] = f'"{a} {b/(8.1*Lambda1):.8f}"'
+                lowFileName = os.path.join(seedPath, 'Low.inp') 
+
                 if writeFiles:
-                    lowFileName = os.path.join(seedPath, 'Low.inp') 
                     Lowinp.write(lowFileName)
+                    lowFilesName.append(lowFileName)
 
                 # Let's remove the original file
                 os.remove(os.path.join(seedPath, 'Low_stillToBeModified.inp'))
 
         self.TSlowBoxFilesCreatedBool = True
+        if len(lowFilesName)==1:
+            OK(f'TurbSim low resolution input files generated, see e.g.:\n{lowFilesName[0]}')
+        elif len(lowFilesName)>1:
+            OK(f'TurbSim low resolution input files generated, see e.g.:\n{lowFilesName[0]}\n{lowFilesName[-1]}')
 
 
     def sed_inplace(self, sed_command, inplace):
@@ -1888,8 +1955,10 @@ class FFCaseCreation:
     def TS_low_batch_prepare(self, run=False, **kwargs):
         """ Writes a flat batch file for TurbSim low"""
 
-        from openfast_toolbox.case_generation.runner import writeBatch, runBatch
-        batchfile = os.path.join(self.path, 'runAllLowBox.bat')
+        from openfast_toolbox.case_generation.runner import writeBatch
+
+        ext = ".bat" if os.name == "nt" else ".sh"
+        batchfile = os.path.join(self.path, f'runAllLowBox{ext}')
 
         TS_files = []
         for condDir in self.condDirList:
@@ -1898,35 +1967,16 @@ class FFCaseCreation:
                 TS_files.append(f'{dirpath}/Low.inp')
 
         writeBatch(batchfile, TS_files, fastExe=self.tsbin, **kwargs)
-        INFO(f"Batch file written to {batchfile}")
+        self.batchfile_low = batchfile
+        OK(f"Batch file written to {batchfile}")
 
         if run:
-            runBatch(batchfile, showOutputs=True, showCommand=True, verbose=True)
+            self.TS_low_batch_run()
 
+    def TS_low_batch_run(self,  showOutputs=True, showCommand=True, verbose=True, **kwargs):
+        from openfast_toolbox.case_generation.runner import runBatch
+        runBatch(self.batchfile_low, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
 
-#         lines = []
-#         node_idx = 0
-#         for condDir in self.condDirList:
-#             #currNode = nodelist[node_idx]
-#             for seed in range(self.nSeeds):
-#                 dirpath = os.path.join(self.path, condDir, f"Seed_{seed}")
-#                 cmd =f"{tsbin} {dirpath}/Low.inp"
-#                 #cmd = (
-#                 #    f"srun -n1 -N1 --exclusive --nodelist={currNode} "
-#                 #    f"--mem-per-cpu={mem_per_cpu}M {turbsimbin} "
-#                 #    f"{dirpath}/Low.inp > {dirpath}/log.low.seed{seed}.txt 2>&1 &"
-#                 #)
-#                 lines.append(cmd)
-#             #node_idx += 1
-#             #if node_idx >= len(nodelist):
-#             #    node_idx = 0  # wrap around if more conditions than nodes
-# 
-#         # Add a final wait so all background jobs finish
-#         #lines.append("wait")
-# 
-#         with open(self.batchfilename_low, "w") as f:
-#             #f.write("#!/bin/bash\n")
-#             f.write("\n".join(lines) + "\n")
 
 
 
@@ -2035,10 +2085,15 @@ class FFCaseCreation:
                     #dst = os.path.join(self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
                     src = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}', 'Low.bts')
                     dst = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
+                    if not os.path.exists(src):
+                        msg = f'BTS file not existing: {src}\nTurbSim must be run on the low-res input files first.'
+                        FAIL(msg)
+                        raise Exception(msg)
                     self._symlink(src, dst)
 
 
     def getDomainParameters(self):
+        INFO('Computing low and high res extent according to TurbSim capabilities')
 
         # If the low box setup hasn't been called (e.g. LES run), do it once to get domain extents
         if not self.TSlowBoxFilesCreatedBool:
@@ -2157,6 +2212,7 @@ class FFCaseCreation:
 
 
     def TS_high_setup(self, writeFiles=True):
+        INFO('Preparing TurbSim high resolution input files.')
 
         #todo: Check if the low-res boxes were created successfully
 
@@ -2222,33 +2278,32 @@ class FFCaseCreation:
                         os.remove(os.path.join(seedPath, f'HighT{t+1}_stillToBeModified.inp'))
 
         self.TShighBoxFilesCreatedBool = True
+        if len(highFilesName)==1:
+            OK(f'TurbSim high resolution input files generated, see e.g.:\n{highFilesName[0]}')
+        elif len(highFilesName)>1:
+            OK(f'TurbSim high resolution input files generated, see e.g.:\n{highFilesName[0]}\n{highFilesName[-1]}')
 
-
-    @property
-    def high_res_bts(self):
-        BTS_files = []
-        highBoxesCaseDirList = [self.caseDirList[c] for c in self.allHighBoxCases.case.values]
-        for condDir in self.condDirList:
-            for case in highBoxesCaseDirList:
-                for seed in range(self.nSeeds):
-                    for t in range(self.nTurbines):
-                        dirpath = os.path.join(self.path, condDir, case, f"Seed_{seed}/TurbSim")
-                        BTS_files.append(f'{dirpath}/HighT{t+1}.bts')
-        return BTS_files
         
 
     def TS_high_batch_prepare(self, run=False, **kwargs):
         """ Writes a flat batch file for TurbSim low"""
+        from openfast_toolbox.case_generation.runner import writeBatch
 
-        from openfast_toolbox.case_generation.runner import writeBatch, runBatch
-        batchfile = os.path.join(self.path, 'runAllHighBox.bat')
+        ext = ".bat" if os.name == "nt" else ".sh"
+        batchfile = os.path.join(self.path, f'runAllHighBox{ext}')
 
         TS_files = [f.replace('.bts', '.inp') for f in self.high_res_bts]
         writeBatch(batchfile, TS_files, fastExe=self.tsbin, **kwargs)
-        INFO(f"Batch file written to {batchfile}")
+        self.batchfile_high = batchfile
+
+        OK(f"Batch file written to {batchfile}")
 
         if run:
-            runBatch(batchfile, showOutputs=True, showCommand=True, verbose=True)
+            self.TS_high_batch_run()
+
+    def TS_high_batch_run(self, showOutputs=True, showCommand=True, verbose=True, **kwargs):
+        from openfast_toolbox.case_generation.runner import runBatch
+        runBatch(self.batchfile_high, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
 
 
     def TS_high_slurm_prepare(self, slurmfilepath, inplace=True, useSed=False):
@@ -2465,20 +2520,19 @@ class FFCaseCreation:
             self._FF_setup_LES(**kwargs)
 
         elif self.inflowStr == 'TurbSim':
-            # We need to make sure the TurbSim boxes have been executed. Let's check the last line of the logfile
             all_bts = self.high_res_bts
-            print('>>>>>>>>>>>>> TEMP MISSING TURBIN SIM BOX')
-            #for bts in all_bts:
-            #    if not os.path.isfile(bts):
-            #        raise Exception(f'File Missing {bts}')
-            #    if os.path.getsize(bts)==0:
-            #        raise Exception(f'File has zero size {bts}')
 
+            for bts in all_bts:
+                if not os.path.isfile(bts):
+                    raise Exception(f'File Missing: {bts}\nAll TurbSim boxes need to be completed before this step can be done.')
+                if os.path.getsize(bts)==0:
+                    raise Exception(f'File has zero size: {bts}\n All TurbSim boxes need to be completed before this step can be done.')
+
+            # --- Legacy, check log file from TurbSim
+            # We need to make sure the TurbSim boxes have been executed. Let's check the last line of the logfile
             #highbox_path = os.path.join(self.path, self.condDirList[0], self.caseDirList[0], 'Seed_0', 'TurbSim', 'HighT1.bts')
-
             #highboxlog_path = os.path.join(self.path, self.condDirList[0], self.caseDirList[0], 'Seed_0', 'TurbSim', 'log.hight1.seed0.txt')
             #if not os.path.isfile(highboxlog_path):
-            #    print('>>>>>>>>>>>>> TEMP MISSING TURBIN SIM BOX')
             #    #raise ValueError(f'All TurbSim boxes need to be completed before this step can be done.')
 
             #with open(highboxlog_path) as f:
@@ -2870,8 +2924,26 @@ class FFCaseCreation:
         return d
 
 
+    def FF_batch_prepare(self, run=False, **kwargs):
+        """ Writes a flat batch file for FASTFarm cases"""
+        from openfast_toolbox.case_generation.runner import writeBatch
 
-    def FF_slurm_prepare(self, slurmfilepath, inplace=True):
+        ext = ".bat" if os.name == "nt" else ".sh"
+        batchfile = os.path.join(self.path, f'runAllFASTFarm{ext}')
+
+        writeBatch(batchfile, self.FFFiles, fastExe=self.ffbin, **kwargs)
+        self.batchfile_ff = batchfile
+
+        OK(f"Batch file written to {batchfile}")
+
+        if run:
+            self.FF_batch_run()
+
+    def FF_batch_run(self, showOutputs=True, showCommand=True, verbose=True, **kwargs):
+        from openfast_toolbox.case_generation.runner import runBatch
+        runBatch(self.batchfile_ff, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+
+    def FF_slurm_prepare(self, slurmfilepath, inplace=True, useSed=True):
         # ----------------------------------------------
         # ----- Prepare SLURM script for FAST.Farm -----
         # ------------- ONE SCRIPT PER CASE ------------
@@ -2881,6 +2953,8 @@ class FFCaseCreation:
             raise ValueError (f'SLURM script for FAST.Farm {slurmfilepath} does not exist.')
         self.slurmfilename_ff = os.path.basename(slurmfilepath)
 
+
+        WARN('Implementation Note: Developper help needed. This function requires sed. Please use regexp similar to what was done for `TS_low_slurm_prepare` or `TS_high_slurm_prepare`.')
 
         for cond in range(self.nConditions):
             for case in range(self.nCases):
@@ -2913,7 +2987,6 @@ class FFCaseCreation:
                     # Wirte FAST.Farm filename
                     sed_command = f"""sed -i "s/FFarm_mod.fstf/FF.fstf/g" {fname}"""
                     self.sed_inplace(sed_command, inplace)
-
 
 
     def FF_slurm_submit(self, qos='normal', A=None, t=None, p=None, delay=4, inplace=True):
@@ -3030,11 +3103,15 @@ class FFCaseCreation:
         '''
         Save object to disk
         '''
-
-        import dill
+        try:
+            import dill
+        except ImportError:
+            FAIL('The python package fill is not installed. FFCaseCreation cannot be saved to disk.\nPlease install it using:\n`pip install dill`')
+            return
 
         objpath = os.path.join(self.path, dill_filename)
         dill.dump(self, file=open(objpath, 'wb'))
+        OK('FAST.Farm case setup saved to file: {}'.format(objpath))
 
 
 
@@ -3087,6 +3164,16 @@ class FFCaseCreation:
                 for yaw in yaw_currwdir:
                     ax.plot([dst.x.values-(dst.D.values/2)*sind(yaw+phi), dst.x.values+(dst.D.values/2)*sind(yaw+phi)],
                             [dst.y.values-(dst.D.values/2)*cosd(yaw+phi), dst.y.values+(dst.D.values/2)*cosd(yaw+phi)], c=color, alpha=alphas[j])
+
+
+                # TODO TODO Plot high-res grid
+                #x_high = X0_High[wt] + np.arange(nX_High+1)*dX_High
+                #y_high = Y0_High[wt] + np.arange(nY_High+1)*dY_High
+                #z_high = Z0_High[wt] + np.arange(nZ_High+1)*dZ_High
+                #if grid:
+                #    ax.vlines(x_high, ymin=y_high[0], ymax=y_high[-1], ls='--', lw=0.4, color=col(wt))
+                #    ax.hlines(y_high, xmin=x_high[0], xmax=x_high[-1], ls='--', lw=0.4, color=col(wt))
+
 
             # plot convex hull of farm (or line) for given inflow
             turbs = self.wts_rot_ds.sel(inflow_deg=inflow)[['x','y']].to_array().transpose()
