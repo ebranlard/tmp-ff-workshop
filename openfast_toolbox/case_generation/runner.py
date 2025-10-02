@@ -148,7 +148,7 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
         batchfile = batchfile.strip()
         batchfile = batchfile.replace('\\','/')
         batchDir  = os.path.dirname(batchfile)
-        batchfileRel = './'+ os.path.relpath(batchfile, batchDir)
+        batchfileRel = os.path.relpath(batchfile, batchDir)
         if windows:
             command = [batchfileRel]
         else:

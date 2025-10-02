@@ -135,13 +135,13 @@ if runTurbSim:
 # ----------- TurbSim high-res setup
 ffcase.TS_high_setup()
 ffcase.TS_high_batch_prepare()
-if runTurbSim:
-    ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
+# if runTurbSim:
+#     ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 # 
 # ----------- FAST.Farm setup
 ffcase.FF_setup()
 ffcase.FF_batch_prepare()
-# ffcase.FF_batch_run()
+ffcase.FF_batch_run()
 
 
 ffcase.plot()

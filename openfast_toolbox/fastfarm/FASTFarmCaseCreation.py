@@ -2803,7 +2803,7 @@ class FFCaseCreation:
             for case in range(self.nCases):
                 if self.verbose>0: print(f'    Processing all {self.nSeeds} seeds of case {self.caseDirList[case]}', end='\r')
                 for seed in range(self.nSeeds):
-                    seedPath = getCaseSeedPath(cond, case, seed)
+                    seedPath = self.getCaseSeedPath(cond, case, seed)
         
                     # Recover case properties
                     D_       = self.allCases['D'   ].max().values # Getting the maximum in case different turbines are present
@@ -2833,8 +2833,12 @@ class FFCaseCreation:
                     d = self._getBoxesParamsForFF(lowbts, highbts, self.dt_low, D_, HubHt_, xWT, yt)
         
                     # Write the file
+                    if self.flat:
+                        turbineTemplateFullFilename=f"{self.turbfilename}1.fst"
+                    else:
+                        turbineTemplateFullFilename=f"../{self.turbfilename}1.fst"
                     writeFastFarm(outputFSTF, templateFSTF, xWT, yt, zWT, d, OutListT1=self.outlistFF,
-                                  noLeadingZero=True, turbineTemplateFullFilename=f"../{self.turbfilename}1.fst")
+                                  noLeadingZero=True, turbineTemplateFullFilename=turbineTemplateFullFilename)
         
                     # Open saved file and change additional values manually or make sure we have the correct ones
                     ff_file = FASTInputFile(outputFSTF)
