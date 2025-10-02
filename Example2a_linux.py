@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import os
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation, check_files_exist
-from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup
+from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup, check_discon_library
 
 runTurbSim=True
 
@@ -40,6 +40,12 @@ templateFiles = {
 #     'turbsimHighfilepath'     : './SampleFiles/template_HighT1_InflowXX_SeedY.inp'
 }
 check_files_exist(ffbin, tsbin, templatePath)
+
+
+check_discon_library(templateFiles['libdisconfilepath'])
+# check_discon_library('./template/libdiscon_rosco_v2.9.3.so')
+raise Exception
+
 # -----------------------------------------------------------------------------
 # --------------------------- Farm parameters ---------------------------------
 # -----------------------------------------------------------------------------

@@ -9,8 +9,11 @@ from openfast_toolbox.tools.strings import INFO, FAIL, OK, WARN, print_bold
 
 from openfast_toolbox.io import FASTInputDeck, FASTInputFile, FASTOutputFile, TurbSimFile, VTKFile
 from openfast_toolbox.io.rosco_discon_file import ROSCODISCONFile
-from openfast_toolbox.fastfarm import writeFastFarm, plotFastFarmSetup
+from openfast_toolbox.fastfarm import writeFastFarm
+from openfast_toolbox.fastfarm import plotFastFarmSetup # Make it available 
 from openfast_toolbox.fastfarm.TurbSimCaseCreation import TSCaseCreation, writeTimeSeriesFile
+from openfast_toolbox.modules.servodyn import check_discon_library # Make it available
+
 
 try:
     import xarray as xr
