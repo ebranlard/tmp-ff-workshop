@@ -1,6 +1,7 @@
 import pandas as pd
 import os, sys, shutil
 import subprocess
+from contextlib import contextmanager
 import numpy as np
 np.random.seed(12) # For reproducibility (e.g. random azimuth)
 
@@ -23,6 +24,20 @@ _MOD_WAKE_STR = ['','polar', 'curled', 'cartesian']
 
 def cosd(t): return np.cos(np.deg2rad(t))
 def sind(t): return np.sin(np.deg2rad(t))
+
+
+# --------------------------------------------------------------------------------}
+# --- File IO utils 
+# --------------------------------------------------------------------------------{
+@contextmanager
+def safe_cd(newdir):
+    prevdir = os.getcwd()
+    try:
+        os.chdir(newdir)
+        yield
+    finally:
+        os.chdir(prevdir)
+
 def check_files_exist(*args):
     import os
     if len(args)>1:
@@ -117,14 +132,8 @@ def load(fullpath, dill_filename='ffcase_obj.dill'):
     obj = dill.load(file = open(fulldillfilename, 'rb'))
     return obj
 
-def getSeedPath(casePath, seed, nSeeds):
-    return os.path.join(casePath, f'Seed_{seed}')
-    #if nSeeds==1:
-    #    return casePath
-    #else:
-    #    return os.path.join(casePath, f'Seed_{seed}')
 
-def can_create_symlink():
+def hasSymlink():
     # If running on a platform without os.symlink (e.g. very old Python)
     import tempfile
     if not hasattr(os, "symlink"):
@@ -303,7 +312,7 @@ class FFCaseCreation:
         if self.verbose>0: print(f'Checking inputs... Done.')
 
         if self.verbose>0: print(f'Checking if we can create symlinks...', end='\r')
-        self._can_create_symlinks = can_create_symlink()
+        self._can_create_symlinks = hasSymlink()
         if self.verbose>0: print(f'Checking if we can create symlinks... {self._can_create_symlinks}')
 
         if self.verbose>0: print(f'Setting rotor parameters...', end='\r')
@@ -435,6 +444,30 @@ class FFCaseCreation:
     @property 
     def Cmeander(self): return self.wts[0]['Cmeander']
 
+    # --------------------------------------------------------------------------------}
+    # --- Path and file handling 
+    # --------------------------------------------------------------------------------{
+    def getCondPath(self, cond):
+        return os.path.join(self.path, self.condDirList[cond])
+
+    def getCasePath(self, cond, case):
+        return os.path.join(self.path, self.condDirList[cond], self.caseDirList[case])
+
+    def getCaseSeedPath(self, cond, case, seed):
+        casePath = self.getCasePath(cond, case)
+        return os.path.join(casePath, f'Seed_{seed}')
+        #if nSeeds==1:
+        #    return casePath
+        #else:
+        #    return os.path.join(casePath, f'Seed_{seed}')
+
+    def getHRTurbSimPath(self, cond, case, seed):
+        return os.path.join( self.getCaseSeedPath(cond, case, seed), 'TurbSim' )
+
+    def getCondSeedPath(self, cond, seed):
+        condPath = self.getCondPath(cond)
+        return os.path.join(condPath, f'Seed_{seed}')
+
     @property
     def FFFiles(self):
         files = []
@@ -472,12 +505,15 @@ class FFCaseCreation:
     @property
     def high_res_bts(self):
         files = []
-        highBoxesCaseDirList = [self.caseDirList[c] for c in self.allHighBoxCases.case.values]
-        for condDir in self.condDirList:
-            for case in highBoxesCaseDirList:
+        #highBoxesCaseDirList = [self.caseDirList[c] for c in self.allHighBoxCases.case.values]
+        #for condDir in self.condDirList:
+        #    for case in highBoxesCaseDirList:
+        for cond in range(self.nConditions):
+            for case in range(self.nCases):
                 for seed in range(self.nSeeds):
+                    dirpath = self.getHRTurbSimPath(cond, case, seed)
                     for t in range(self.nTurbines):
-                        dirpath = os.path.join(self.path, condDir, case, f"Seed_{seed}/TurbSim")
+                        #dirpath = os.path.join(self.path, condDir, case, f"Seed_{seed}/TurbSim")
                         files.append(f'{dirpath}/HighT{t+1}.bts')
         return files
 
@@ -732,8 +768,8 @@ class FFCaseCreation:
         if not os.path.exists(self.path):
             os.makedirs(self.path)
 
+        # --- Creating Condition list
         condDirList = []
-        caseDirList_ = []
         for cond in range(self.nConditions):
             # Recover information about current condition for directory naming purposes
             Vhub_    = self.allCond['vhub'      ].isel(cond=cond).values
@@ -743,54 +779,76 @@ class FFCaseCreation:
             # Set current path name string
             condStr = f'Cond{cond:02d}_v{Vhub_:04.1f}_PL{shear_}_TI{tivalue_}'
             condDirList.append(condStr)
-            condPath = os.path.join(self.path, condStr)
-            
-            for case in range(self.nCases):
-                # Recover information about current case for directory naming purposes
-                inflow_deg_   = self.allCases['inflow_deg'     ].sel(case=case).values
-                misalignment_ = self.allCases['misalignment'   ].sel(case=case).values
-                nADyn_        = self.allCases['nFullAeroDyn'   ].sel(case=case).values
-                nFED_         = self.allCases['nFulllElastoDyn'].sel(case=case).values
-                yawCase_      = self.allCases['yawCase'        ].sel(case=case).values
-            
-                # Set current path name string. The case is of the following form: Case00_wdirp10_WSfalse_YMfalse_12fED_12ADyn
-                ndigits = len(str(self.nCases))
-                caseStr = f"Case{case:0{ndigits}d}_wdir{f'{int(inflow_deg_):+03d}'.replace('+','p').replace('-','m')}"
-                # Add standard sweeps to the case name
-                if self.sweepYM:
-                    caseStr += f"_YM{str(misalignment_).lower()}"
-                if self.sweepEDmodel:
-                    caseStr += f"_{nFED_}fED"
-                if self.sweepADmodel:
-                    caseStr += f"_{nADyn_}ADyn"
 
-                #caseStr = f"Case{case:0{ndigits}d}_wdir{f'{int(inflow_deg_):+03d}'.replace('+','p').replace('-','m')}"\
-                #          f"_WS{str(wakeSteering_).lower()}_YM{str(misalignment_).lower()}"\
-                #          f"_{nFED_}fED_{nADyn_}ADyn"
-                # If sweeping on yaw, then add yaw case to dir name
-                if len(np.unique(self.allCases.yawCase)) > 1:
-                    caseStr += f"_yawCase{yawCase_}"
-                
-                caseDirList_.append(caseStr)
-                casePath = os.path.join(condPath, caseStr)
+        self.condDirList = condDirList
+            
+        # --- Creating Case List
+        caseDirList_ = []
+        for case in range(self.nCases):
+            # Recover information about current case for directory naming purposes
+            inflow_deg_   = self.allCases['inflow_deg'     ].sel(case=case).values
+            misalignment_ = self.allCases['misalignment'   ].sel(case=case).values
+            nADyn_        = self.allCases['nFullAeroDyn'   ].sel(case=case).values
+            nFED_         = self.allCases['nFulllElastoDyn'].sel(case=case).values
+            yawCase_      = self.allCases['yawCase'        ].sel(case=case).values
+        
+            # Set current path name string. The case is of the following form: Case00_wdirp10_WSfalse_YMfalse_12fED_12ADyn
+            ndigits = len(str(self.nCases))
+            caseStr = f"Case{case:0{ndigits}d}_wdir{f'{int(inflow_deg_):+03d}'.replace('+','p').replace('-','m')}"
+            # Add standard sweeps to the case name
+            if self.sweepYM:
+                caseStr += f"_YM{str(misalignment_).lower()}"
+            if self.sweepEDmodel:
+                caseStr += f"_{nFED_}fED"
+            if self.sweepADmodel:
+                caseStr += f"_{nADyn_}ADyn"
+
+            #caseStr = f"Case{case:0{ndigits}d}_wdir{f'{int(inflow_deg_):+03d}'.replace('+','p').replace('-','m')}"\
+            #          f"_WS{str(wakeSteering_).lower()}_YM{str(misalignment_).lower()}"\
+            #          f"_{nFED_}fED_{nADyn_}ADyn"
+            # If sweeping on yaw, then add yaw case to dir name
+            if len(np.unique(self.allCases.yawCase)) > 1:
+                caseStr += f"_yawCase{yawCase_}"
+            
+            caseDirList_.append(caseStr)
+
+        self.caseDirList = caseDirList_
+        
+        # --- Creating directories including seed directories
+        for cond in range(self.nConditions):
+            for case in range(self.nCases):
+                casePath = self.getCasePath(cond, case)
                 if not os.path.exists(casePath):  os.makedirs(casePath)
                 
                 for seed in range(self.nSeeds):
-                    seedPath = getSeedPath(casePath, seed, self.nSeeds) 
+                    seedPath = self.getCaseSeedPath(cond, case, seed)
                     if not os.path.exists(seedPath):  os.makedirs(seedPath)
-                    turbsimPath = os.path.join(seedPath, 'TurbSim')
-                    if not os.path.exists(turbsimPath):  os.makedirs(turbsimPath)
+                    turbSimPath = self.getHRTurbSimPath(cond, case, seed)
+                    if not os.path.exists(turbSimPath):  os.makedirs(turbSimPath)
                     
             # The following loop creates the turbsim files for low box. That should really only happen if inflowStr is `TurbSim`.
             # It does happen regardless because when the inflow is LES, it will be later on deleted.
             for seed in range(self.nSeeds):
-                seedPath = getSeedPath(condPath, seed, self.nSeeds) 
+                seedPath = self.getCondSeedPath(cond, seed)
                 if not os.path.exists(seedPath):  os.makedirs(seedPath)
-                
-        # Get rid of duplicate entries due to the nature of the loop (equiv to only getting the first nCases entries)
-        self.condDirList = condDirList
-        self.caseDirList = sorted(list(set(caseDirList_)))
-        assert self.caseDirList==caseDirList_[:self.nCases]
+
+    def _copy(self, src, dst, debug=False):
+        if debug:
+            print('SRC:', src, os.path.exists(src))
+            print('DST:', dst, os.path.exists(dst))
+        error = f"Src file not found: {src}"
+        if not os.path.exists(src):
+            raise Exception(error)
+            #return error
+        if not os.path.exists(dst):
+            #try:
+            shutil.copy2(src, dst)
+            #except FileExistsError:
+            #    if debug:
+            #        raise Exception(error)
+            #    error = dst
+        return error
+
 
 
     def _symlink(self, src, dst, debug=False):
@@ -828,7 +886,7 @@ class FFCaseCreation:
             if self.verbose>0: print(f'Processing condition {self.condDirList[cond]}')
             for case in range(self.nCases):
                 if self.verbose>0: print(f'    Processing case {self.caseDirList[case]}', end='\r')
-                currPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case])
+                currPath = self.getCasePath(cond, case)
         
                 # Recover info about the current CondXX_*/CaseYY_*
                 Vhub_ = self.allCond.sel(cond=cond)['vhub'].values
@@ -888,12 +946,25 @@ class FFCaseCreation:
                 # regardless of how the controller was compiled. There is no harm in having this extra link even if it's not needed.
                 if self.hasController:
                     for seed in range(self.nSeeds):
-                        casePath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case])
-                        seedPath = getSeedPath(casePath, seed, self.nSeeds) 
-                        src = os.path.join(self.templatePath, self.controllerInputfilename)                            
+                        seedPath = self.getCaseSeedPath(cond, case, seed) 
                         dst = os.path.join(seedPath, self.controllerInputfilename)
-                        if writeFiles:
-                            self._symlink(src, dst, debug=False)
+                        if self._can_create_symlinks:
+                            # --- Unix based
+                            # We create a symlink at
+                            #    dst = path/cond/case/seed/DISCON.in
+                            # pointing to :
+                            #    src = '../DISCON.in'
+                            src = os.path.join('../', self.controllerInputfilename)
+                            if writeFiles:
+                                try:
+                                    os.symlink(src, dst)                
+                                except FileExistsError:
+                                    pass
+                        else:
+                            # --- Windows 
+                            src = os.path.join(self.templatePath, self.controllerInputfilename)                            
+                            if writeFiles:
+                                self._copy(src, dst, debug=False)
         
                 # Write InflowWind files. For FAST.Farm, each OpenFAST instance needs to have an IW file. For LES-driven cases (Mod_AmbWind=1),
                 # it is still needed, even though WindType is not used. For TS-driven, it is also needed and WindType should be 3. Here we use
@@ -912,7 +983,7 @@ class FFCaseCreation:
                     self.InflowWindFile.write( os.path.join(currPath,self.IWfilename))
                     if self.Mod_AmbWind == 3:  # only for TS-driven cases
                         for seed in range(self.nSeeds):
-                            seedPath = getSeedPath(currPath, seed, self.nSeeds)
+                            seedPath = self.getCaseSeedPath(cond, case, seed)
                             self.InflowWindFile.write( os.path.join(seedPath, self.IWfilename))
 
         
@@ -2077,19 +2148,31 @@ class FFCaseCreation:
 
     def TS_low_createSymlinks(self):
         # Create symbolic links for all of the time-series and the Low.bts files too
-        
         for cond in range(self.nConditions):
             for case in range(self.nCases):
                 for seed in range(self.nSeeds):
-                    #src = os.path.join('..', '..', '..', '..', self.condDirList[cond], f'Seed_{seed}', 'Low.bts')
-                    #dst = os.path.join(self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
-                    src = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}', 'Low.bts')
-                    dst = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
+                    condSeedPath = self.getCondSeedPath(cond, seed)
+                    turbSimPath = self.getHRTurbSimPath(cond, case, seed)
+                    dst = os.path.join(turbSimPath,  'Low.bts')
+                    src = os.path.join(condSeedPath, 'Low.bts')
                     if not os.path.exists(src):
                         msg = f'BTS file not existing: {src}\nTurbSim must be run on the low-res input files first.'
                         FAIL(msg)
                         raise Exception(msg)
-                    self._symlink(src, dst)
+                    if self._can_create_symlinks:
+                        # --- Unix based
+                        # We create a symlink at
+                        #    dst = path/cond/case/seed/DISCON.in
+                        # pointing to :
+                        #    src = '../../Seed_0/Low.bts' # We use relative path to help if the whole path directory is moved
+                        src = os.path.join( os.path.relpath(condSeedPath, turbSimPath), 'Low.bts')
+                        try:
+                            os.symlink(src, dst)
+                        except FileExistsError:
+                            print(f'    File {dst} already exists. Skipping symlink.')
+                    else:
+                        # --- Windows
+                        self._copy(src, dst)
 
 
     def getDomainParameters(self):

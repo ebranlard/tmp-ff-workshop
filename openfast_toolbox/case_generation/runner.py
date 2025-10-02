@@ -4,6 +4,7 @@ import subprocess
 import multiprocessing
 
 import collections
+from contextlib import contextmanager
 import glob
 import pandas as pd
 import numpy as np
@@ -17,6 +18,15 @@ from openfast_toolbox.io.fast_output_file import FASTOutputFile
 from openfast_toolbox.tools.strings import FAIL, OK
 
 FAST_EXE='openfast'
+
+@contextmanager
+def safe_cd(newdir):
+    prevdir = os.getcwd()
+    try:
+        os.chdir(newdir)
+        yield
+    finally:
+        os.chdir(prevdir)
 
 # --------------------------------------------------------------------------------}
 # --- Tools for executing FAST
@@ -114,7 +124,7 @@ def run_cmd(input_file_or_arglist, exe, wait=True, showOutputs=False, showComman
     p.exe            = exe
     return p
 
-def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWindow=False, closeWindow=True):
+def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWindow=False, closeWindow=True, shell_cmd='bash'):
     """ 
     Run one or several batch files
     TODO: error handling, status, parallel
@@ -125,6 +135,7 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
     For output to show in a Jupyter notebook, we cannot use stdout=None, or stderr=None, we need to use Pipe
 
     """
+    windows = (os.name == "nt")
 
     if showOutputs:
         STDOut= None
@@ -133,55 +144,59 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
         #STDOut= subprocess.DEVNULL
         STDOut= subprocess.PIPE
 
-    curDir = os.getcwd()
-    print('Current directory', curDir)
-
     def runOneBatch(batchfile):
         batchfile = batchfile.strip()
         batchfile = batchfile.replace('\\','/')
         batchDir  = os.path.dirname(batchfile)
-        batchfileRel = os.path.relpath(batchfile, batchDir)
+        batchfileRel = './'+ os.path.relpath(batchfile, batchDir)
+        if windows:
+            command = [batchfileRel]
+        else:
+            command = [shell_cmd, batchfileRel]
+
         if showCommand:
             print('>>>> Running batch file:', batchfileRel)
+            print('          using command:', command)
             print('           in directory:', batchDir)
 
         if newWindow:
             # --- Launch a new window (windows only for now)
-            cmdflag= '/c' if closeWindow else '/k'
-            subprocess.Popen(f'start cmd {cmdflag} {batchfileRel}', shell=True, cwd=batchDir)
-            return 0
+            if windows:
+                cmdflag= '/c' if closeWindow else '/k'
+                subprocess.Popen(f'start cmd {cmdflag} {batchfileRel}', shell=True, cwd=batchDir)
+                return 0
+            else:
+                raise NotImplementedError('Running batch in `newWindow` only implemented on Windows.')
         else:
             # --- We wait for outputs
             stdout_data = None
-            try:
-                os.chdir(batchDir)
-                batchDir  = os.path.join(curDir, batchDir)
-                # --- Option 1
-                #returncode=subprocess.call([batchfileRel], stdout=STDOut, stderr=subprocess.STDOUT, shell=shell)
-
-                # --- Option 2
-                # Use Popen so we can print outputs live
-                #proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell, text=True )
-                proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell, text=True )
-                # Print or store stdout
-                if showOutputs:
-                    for line in proc.stdout:
+            with safe_cd(batchDir): # Automatically go back to current directory
+                try:
+                    # --- Option 2
+                    # Use Popen so we can print outputs live
+                    #proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell, text=True )
+                    proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell, text=True )
+                    # Print or store stdout
+                    if showOutputs:
+                        for line in proc.stdout:
+                            print(line, end='')
+                    else:
+                        stdout_data = proc.stdout.read()  # read everything
+                    # Always print errors output line by line
+                    for line in proc.stderr:
                         print(line, end='')
-                else:
-                    stdout_data = proc.stdout.read()  # read everything
-                # ALWAYS Print errors output line by line
-                for line in proc.stderr:
-                    print(line, end='')
-                proc.wait()
-                returncode = proc.returncode
-                # Dump stdout if there was an error
-                if returncode != 0 and stdout_data:
-                    print("\n--- Captured stdout ---")
-                    print(stdout_data)
-
-            except:
-                returncode=-10
-            os.chdir(curDir)
+                    proc.wait()
+                    returncode = proc.returncode
+                    # Dump stdout if there was an error
+                    if returncode != 0 and stdout_data:
+                        print("\n--- Captured stdout ---")
+                        print(stdout_data)
+                except FileNotFoundError as e:
+                    print('[FAIL] Running Batch failed, a file or command was not found see below:\n'+str(e))
+                    returncode=-10
+                except Exception as e:
+                    print('[FAIL] Running Batch failed, see below:\n'+str(e))
+                    returncode=-10
             return returncode
 
 
