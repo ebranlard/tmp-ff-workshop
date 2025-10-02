@@ -79,6 +79,22 @@ def shutilcopy2_untilSuccessful(src, dst):
         print(f'File {dst} not created. Trying again.\n')
         shutilcopy2_untilSuccessful(src,dst)
 
+def hasSymlink():
+    # If running on a platform without os.symlink (e.g. very old Python)
+    import tempfile
+    if not hasattr(os, "symlink"):
+        return False
+    try:
+        with tempfile.TemporaryDirectory() as tmp:
+            target = os.path.join(tmp, "target")
+            link   = os.path.join(tmp, "link")
+            open(target, "w").close()
+            os.symlink(target, link)      # attempt creation
+        return True
+    except (OSError, NotImplementedError):
+        # OSError covers Windows privilege errors, NotImplementedError covers unsupported FS
+        return False
+
 def getMultipleOf(val, multipleof):
     '''
     Get integer multiple of a quantity.
@@ -110,6 +126,12 @@ def modifyProperty(fullfilename, entry, value):
     f.write(fullfilename)
     return
 
+class FFException(Exception):
+    def __init__(self, message):
+        FAIL(message) 
+        super().__init__(message)
+
+
 def load(fullpath, dill_filename='ffcase_obj.dill'):
     '''
     Function to load dill objects saved with self.save()
@@ -136,21 +158,6 @@ def load(fullpath, dill_filename='ffcase_obj.dill'):
     return obj
 
 
-def hasSymlink():
-    # If running on a platform without os.symlink (e.g. very old Python)
-    import tempfile
-    if not hasattr(os, "symlink"):
-        return False
-    try:
-        with tempfile.TemporaryDirectory() as tmp:
-            target = os.path.join(tmp, "target")
-            link   = os.path.join(tmp, "link")
-            open(target, "w").close()
-            os.symlink(target, link)      # attempt creation
-        return True
-    except (OSError, NotImplementedError):
-        # OSError covers Windows privilege errors, NotImplementedError covers unsupported FS
-        return False
 
 
 class FFCaseCreation:
@@ -183,6 +190,7 @@ class FFCaseCreation:
                  sweepYawMisalignment = False,
                  refTurb_rot = 0,
                  #ptfm_rot    = False,
+                 flat=False,
                  verbose = 0):
         '''
         Full setup of a FAST.Farm simulations, can create setups for LES- or TurbSim-driven scenarios.
@@ -288,6 +296,7 @@ class FFCaseCreation:
         #self.ptfm_rot    = ptfm_rot
         self.verbose     = verbose
         self.attempt     = 1
+        self.flat        = flat
         # Set aux variable
         self.templateFilesCreatedBool  = False
         self.TSlowBoxFilesCreatedBool  = False
@@ -451,25 +460,33 @@ class FFCaseCreation:
     # --- Path and file handling 
     # --------------------------------------------------------------------------------{
     def getCondPath(self, cond):
-        return os.path.join(self.path, self.condDirList[cond])
+        if self.flat:
+            return self.path
+        else:
+            return os.path.join(self.path, self.condDirList[cond])
 
     def getCasePath(self, cond, case):
-        return os.path.join(self.path, self.condDirList[cond], self.caseDirList[case])
+        if self.flat:
+            return self.getCondPath(cond)
+        else:
+            return os.path.join(self.getCondPath(cond), self.caseDirList[case])
 
     def getCaseSeedPath(self, cond, case, seed):
         casePath = self.getCasePath(cond, case)
-        return os.path.join(casePath, f'Seed_{seed}')
-        #if nSeeds==1:
-        #    return casePath
-        #else:
-        #    return os.path.join(casePath, f'Seed_{seed}')
+        if self.flat:
+            return casePath
+        else:
+            return os.path.join(casePath, f'Seed_{seed}')
 
     def getHRTurbSimPath(self, cond, case, seed):
         return os.path.join( self.getCaseSeedPath(cond, case, seed), 'TurbSim' )
 
     def getCondSeedPath(self, cond, seed):
         condPath = self.getCondPath(cond)
-        return os.path.join(condPath, f'Seed_{seed}')
+        if self.flat:
+            return os.path.join(condPath, 'TurbSim')
+        else:
+            return os.path.join(condPath, f'Seed_{seed}')
 
     @property
     def FFFiles(self):
@@ -477,7 +494,7 @@ class FFCaseCreation:
         for cond in range(self.nConditions):
             for case in range(self.nCases):
                 for seed in range(self.nSeeds):
-                    ff_file = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', self.outputFFfilename)
+                    ff_file = os.path.join(self.getCaseSeedPath(cond, case, seed), self.outputFFfilename)
                     files.append(ff_file)
         return files
 
@@ -497,12 +514,13 @@ class FFCaseCreation:
             ext='.fst' if module=='FST' else '.dat'
             for cond in range(self.nConditions):
                 for case in range(self.nCases):
+                    casePath = self.getCasePath(cond, case)
                     for turb in range(self.nTurbines):
-                        files.append(os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'{basename}{turb+1}{ext}'))
+                        files.append(os.path.join(casePath, f'{basename}{turb+1}{ext}'))
         else:
             for cond in range(self.nConditions):
                 for case in range(self.nCases):
-                    files.append( os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], basename) )
+                    files.append( os.path.join(self.getCasePath(cond, case), basename) )
         return files
 
     @property
@@ -1198,7 +1216,7 @@ class FFCaseCreation:
 
         for cond in range(self.nConditions):
             for case in range(self.nCases):
-                currPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case])
+                currPath = self.getCasePath(cond, case)
 
                 # Check HydroDyn
                 if self.hasHD and not self.multi_HD:
@@ -1675,6 +1693,11 @@ class FFCaseCreation:
         self._rotate_wts()
         self._create_all_cond()
         self._create_all_cases()
+        if self.flat:
+            if self.nCases==1 and self.nConditions==1:
+                self.flat
+            else:
+                self.flat = False
 
 
     def _create_all_cond(self):
@@ -1953,7 +1976,7 @@ class FFCaseCreation:
         lowFilesName = []
         for cond in range(self.nConditions):
             for seed in range(self.nSeeds):
-                seedPath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
+                seedPath = self.getCondSeedPath(cond, seed)
                 
                 # ---------------- TurbSim Low boxes setup ------------------ #
                 # Set file to be created
@@ -2035,10 +2058,10 @@ class FFCaseCreation:
         batchfile = os.path.join(self.path, f'runAllLowBox{ext}')
 
         TS_files = []
-        for condDir in self.condDirList:
+        for cond in range(self.nConditions):
             for seed in range(self.nSeeds):
-                dirpath = os.path.join(self.path, condDir, f"Seed_{seed}")
-                TS_files.append(f'{dirpath}/Low.inp')
+                seedpath = self.getCondSeedPath(cond, seed)
+                TS_files.append(f'{seedpath}/Low.inp')
 
         writeBatch(batchfile, TS_files, fastExe=self.tsbin, **kwargs)
         self.batchfile_low = batchfile
@@ -2049,7 +2072,9 @@ class FFCaseCreation:
 
     def TS_low_batch_run(self,  showOutputs=True, showCommand=True, verbose=True, **kwargs):
         from openfast_toolbox.case_generation.runner import runBatch
-        runBatch(self.batchfile_low, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        stat = runBatch(self.batchfile_low, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        if stat!=0:
+            raise FFException(f'Batch file failed: {self.batchfile_low}')
 
 
 
@@ -2159,9 +2184,7 @@ class FFCaseCreation:
                     dst = os.path.join(turbSimPath,  'Low.bts')
                     src = os.path.join(condSeedPath, 'Low.bts')
                     if not os.path.exists(src):
-                        msg = f'BTS file not existing: {src}\nTurbSim must be run on the low-res input files first.'
-                        FAIL(msg)
-                        raise Exception(msg)
+                        raise FFException(f'BTS file not existing: {src}\nTurbSim must be run on the low-res input files first.')
                     if self._can_create_symlinks:
                         # --- Unix based
                         # We create a symlink at
@@ -2220,7 +2243,7 @@ class FFCaseCreation:
         # Loop on all conditions/seeds extracting time series from the Low box at turbines location
         for cond in range(self.nConditions):
             for seed in range(self.nSeeds):
-                condSeedPath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
+                condSeedPath = self.getCondSeedPath(cond, seed)
         
                 # Read output .bts for current seed
                 bts = TurbSimFile(os.path.join(condSeedPath, 'Low.bts'))
@@ -2231,7 +2254,7 @@ class FFCaseCreation:
                     # Get actual case number given the high-box that need to be saved
                     case = self.allHighBoxCases.isel(case=case)['case'].values
                     
-                    caseSeedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
+                    caseSeedPath = self.getHRTurbSimPath(cond, case, seed)
                     
                     for t in range(self.nTurbines):
                         # Recover turbine properties of the current case
@@ -2318,7 +2341,7 @@ class FFCaseCreation:
                 if self.verbose>3:
                     print(f'Generating high-res box setup for cond {cond} ({self.condDirList[cond]}), case {case} ({self.caseDirList[case]}).')
                 for seed in range(self.nSeeds):
-                    seedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
+                    seedPath = self.getHRTurbSimPath(cond, case, seed)
         
                     for t in range(self.nTurbines):
         
@@ -2389,7 +2412,9 @@ class FFCaseCreation:
 
     def TS_high_batch_run(self, showOutputs=True, showCommand=True, verbose=True, **kwargs):
         from openfast_toolbox.case_generation.runner import runBatch
-        runBatch(self.batchfile_high, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        stat = runBatch(self.batchfile_high, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        if stat!=0:
+            raise FFException(f'Batch file failed: {self.batchfile_high}')
 
 
     def TS_high_slurm_prepare(self, slurmfilepath, inplace=True, useSed=False):
@@ -2497,8 +2522,6 @@ class FFCaseCreation:
         if self.verbose>0:
             print(f'Creating symlinks for all the high-resolution boxes')
             
-        notepath = os.getcwd()
-        os.chdir(self.path) # TODO TODO TODO
         for cond in range(self.nConditions):
             for case in range(self.nCases):
                 # In order to do the symlink let's check if the current case is source (has bts). If so, skip if. If not, find its equivalent source
@@ -2526,13 +2549,14 @@ class FFCaseCreation:
                 xr.testing.assert_equal(src_xr, dst_xr)
 
                 # Now that we have the correct arrays, we perform the loop on the turbines and seeds
-                # TODO TODO TODO, PROBABLY NEED FIXING
                 for t in range(self.nTurbines):
                     for seed in range(self.nSeeds):
-                        src = os.path.join('..', '..', '..', '..', self.condDirList[cond], self.caseDirList[src_case], f'Seed_{seed}', 'TurbSim', f'HighT{t+1}.bts')
-                        dst = os.path.join(self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', f'HighT{t+1}.bts')
+                        src = os.path.join(self.getHRTurbSimPath(cond, src_case, seed), f'HighT{t+1}.bts')
+                        dst = os.path.join(self.getHRTurbSimPath(cond, case    , seed), f'HighT{t+1}.bts')
+                        #src = os.path.join('..', '..', '..', '..', self.condDirList[cond], self.caseDirList[src_case], f'Seed_{seed}', 'TurbSim', f'HighT{t+1}.bts')
+                        print('Emmanuel Says: TODO Check the line below')
+                        src = os.path.relpath(src, dst)
                         self._symlink(src, dst)
-        os.chdir(notepath)
 
 
     def FF_setup(self, outlistFF=None, **kwargs):
@@ -2610,9 +2634,9 @@ class FFCaseCreation:
 
             for bts in all_bts:
                 if not os.path.isfile(bts):
-                    raise Exception(f'File Missing: {bts}\nAll TurbSim boxes need to be completed before this step can be done.')
+                    raise FFException(f'File Missing: {bts}\nAll TurbSim boxes need to be completed before this step can be done.')
                 if os.path.getsize(bts)==0:
-                    raise Exception(f'File has zero size: {bts}\n All TurbSim boxes need to be completed before this step can be done.')
+                    raise FFException(f'File has zero size: {bts}\n All TurbSim boxes need to be completed before this step can be done.')
 
             # --- Legacy, check log file from TurbSim
             # We need to make sure the TurbSim boxes have been executed. Let's check the last line of the logfile
@@ -2639,13 +2663,12 @@ class FFCaseCreation:
         # Clean unnecessary directories and files created by the general setup
         for cond in range(self.nConditions):
             for seed in range(self.nSeeds):
-                currpath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
+                currpath = self.getCondSeedPath(cond, seed)
                 if os.path.isdir(currpath):  shutil.rmtree(currpath)
     
             for case in range(self.nCases):
-                #shutil.rmtree(os.path.join(path, condDirList[cond], caseDirList[case], f'Seed_0','InflowWind.dat')) # needs to exist
                 for seed in range(seedsToKeep,self.nSeeds):
-                    currpath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}')
+                    currpath = self.getCaseSeedPath(cond, case, seed)
                     if os.path.isdir(currpath):  shutil.rmtree(currpath)
                         
         
@@ -2656,21 +2679,22 @@ class FFCaseCreation:
             for case in range(self.nCases):
                 for seed in range(self.seedsToKeep):
                     # Remove TurbSim dir
-                    currpath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
+                    currpath = self.getHRTurbSimPath(cond, case, seed)
+                    seedPath = self.getCaseSeedPath(cond, case, seed)
                     if os.path.isdir(currpath):  shutil.rmtree(currpath)
                     # Create LES boxes dir
-                    currpath = os.path.join(self.path,self.condDirList[cond],self.caseDirList[case],f'Seed_{seed}',LESboxesDirName)
+                    currpath = os.path.join(seedPath, LESboxesDirName)
                     if not os.path.isdir(currpath):  os.makedirs(currpath)
         
                     # Low-res box
                     src = os.path.join(self.inflowPath[cond], 'Low')
-                    dst = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', LESboxesDirName, 'Low')
+                    dst = os.path.join(seedPath, LESboxesDirName, 'Low')
                     self._symlink(src, dst)
         
                     # High-res boxes
                     for t in range(self.nTurbines):
                         src = os.path.join(self.inflowPath[cond], f"HighT{t+1}_inflow{str(self.allCases.sel(case=case).inflow_deg.values).replace('-','m')}deg")
-                        dst = os.path.join(self.path,self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', LESboxesDirName, f'HighT{t+1}')
+                        dst = os.path.join(seedPath, LESboxesDirName, f'HighT{t+1}')
                         self._symlink(src, dst)
         
         
@@ -2678,7 +2702,7 @@ class FFCaseCreation:
         for cond in range(self.nConditions):
             for case in range(self.nCases):
                 for seed in range(seedsToKeep):
-                    seedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}')
+                    seedPath = self.getCaseSeedPath(cond, case, seed)
         
                     # Recover case properties
                     D_       = self.allCases['D'   ].max().values # Getting the maximum in case different turbines are present
@@ -2779,7 +2803,7 @@ class FFCaseCreation:
             for case in range(self.nCases):
                 if self.verbose>0: print(f'    Processing all {self.nSeeds} seeds of case {self.caseDirList[case]}', end='\r')
                 for seed in range(self.nSeeds):
-                    seedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}')
+                    seedPath = getCaseSeedPath(cond, case, seed)
         
                     # Recover case properties
                     D_       = self.allCases['D'   ].max().values # Getting the maximum in case different turbines are present
@@ -3180,7 +3204,7 @@ class FFCaseCreation:
         for cond in range(self.nConditions):
             for case in range(self.nCases):
                 for seed in range(self.nSeeds):
-                    ff_file = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', file_to_modify)
+                    ff_file = os.path.join(self.getCaseSeedPath(cond, case, seed), file_to_modify)
                     if not os.path.exists(ff_file):
                         raise ValueError(f'Method only applies to files inside seed directories. File {ff_file} not found.')
                     modifyProperty(ff_file, property_to_modify, value)

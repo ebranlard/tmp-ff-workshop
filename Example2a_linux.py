@@ -4,12 +4,16 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation, check
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup, check_discon_library
 
 runTurbSim=True
+flat=True
 
 
 # -----------------------------------------------------------------------------
 # ------------------------ General parameters ---------------------------------
 # -----------------------------------------------------------------------------
-simPath = '_ff_example_2a_linux'            # folder (preferably new) where all the simulation files will be written
+if flat:
+    simPath = '_ff_example_2a_linux_flat'            # folder (preferably new) where all the simulation files will be written
+else:
+    simPath = '_ff_example_2a_linux_notflat'            # folder (preferably new) where all the simulation files will be written
 # ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
 # tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
 ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
@@ -40,11 +44,7 @@ templateFiles = {
 #     'turbsimHighfilepath'     : './SampleFiles/template_HighT1_InflowXX_SeedY.inp'
 }
 check_files_exist(ffbin, tsbin, templatePath)
-
-
 check_discon_library(templateFiles['libdisconfilepath'])
-# check_discon_library('./template/libdiscon_rosco_v2.9.3.so')
-raise Exception
 
 # -----------------------------------------------------------------------------
 # --------------------------- Farm parameters ---------------------------------
@@ -112,7 +112,7 @@ ffcase = FFCaseCreation(simPath, wts, tmax, zbot, vhub, shear, TIvalue, inflow_d
                         dt_high=dt_high, ds_high=ds_high, extent_high=extent_high,
                         dt_low=dt_low,   ds_low=ds_low,   extent_low=extent_low,
                         mod_wake=mod_wake, inflowType=inflowType,
-                        ffbin=ffbin, tsbin=tsbin)
+                        ffbin=ffbin, tsbin=tsbin, flat=flat)
 
 # ----------- Perform auxiliary steps in preparing the case
 # ffcase.setTemplateFilename(templatePath, templateFiles)
@@ -128,20 +128,20 @@ ffcase.copyTurbineFilesForEachCase()
 ffcase.TS_low_setup()
 # ----------- Prepare script for submission
 ffcase.TS_low_batch_prepare()
-# if runTurbSim:
-#     ffcase.TS_low_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
+if runTurbSim:
+    ffcase.TS_low_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 
 # 
 # ----------- TurbSim high-res setup
 ffcase.TS_high_setup()
 ffcase.TS_high_batch_prepare()
-# if runTurbSim:
-#     ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
+if runTurbSim:
+    ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 # 
 # ----------- FAST.Farm setup
 ffcase.FF_setup()
 ffcase.FF_batch_prepare()
-ffcase.FF_batch_run()
+# ffcase.FF_batch_run()
 
 
 ffcase.plot()
