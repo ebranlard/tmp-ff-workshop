@@ -16,8 +16,8 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, pl
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty
 from openfast_toolbox.case_generation.runner import runBatch
 
-runTurbSim=False
-flat=True
+runTurbSim=True
+flat=False
 
 
 # -----------------------------------------------------------------------------
@@ -26,42 +26,13 @@ flat=True
 if flat:
     simPath = 'ff_example2a_flat'            # folder (preferably new) where all the simulation files will be written
 else:
-    simPath = 'ff_example2a'            # folder (preferably new) where all the simulation files will be written
+    simPath = 'ff_example2a_directory'            # folder (preferably new) where all the simulation files will be written
 ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
 tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
 
-# --- OPTION 1
-templateFSTF= './template/Main.fstf'
-# templateFiles = {
-#     'turbsimLowfilepath'      : './SampleFiles/template_Low_InflowXX_SeedY.inp',
-#     'turbsimHighfilepath'     : './SampleFiles/template_HighT1_InflowXX_SeedY.inp'
-# }
-
-
-# templatePath = './template/'
-templateFiles = {
-#     'FFfilename'              : 'FF.fstf',
-#     'turbfilename'            : 'WT.T',
-#     "EDfilename"              : 'ED.T',
-#     'SrvDfilename'            : 'SvD.T',
-#     'ADfilename'              : 'AD.dat',
-#     'ADbladefilename'         : 'IEA-15-240-RWT_AeroDyn15_blade.dat',
-#     'IWfilename'              : 'IW_WT.dat',
-#     'EDbladefilename'         : 'IEA-15-240-RWT_ElastoDyn_blade.dat',
-#     'EDtowerfilename'         : 'IEA-15-240-RWT-Monopile_ElastoDyn_tower.dat',
-#     'controllerInputfilename' : 'DISCON_ROSCOv2.9.IN',
-    'libdisconfilepath'       : './template/libdiscon_rosco_v2.9.0.dll',
-# #     'turbsimLowfilepath'      : './SampleFiles/template_Low_InflowXX_SeedY.inp',
-# #     'turbsimHighfilepath'     : './SampleFiles/template_HighT1_InflowXX_SeedY.inp'
-}
-# check_files_exist(ffbin, tsbin, templatePath)
-
-
-# from openfast_toolbox.io.rosco_discon_file import ROSCODISCONFile
-# controllerInputfilename='./template/DISCON_ROSCOv2.9.IN'
-# rosco = ROSCODISCONFile(controllerInputfilename)
-# rosco.write('./template/DISCON_ROSCOv2.9_OUT.IN')
-# raise 
+templateFSTF= './template/FF.fstf'
+templateFiles = {'libdisconfilepath': './template/libdiscon_rosco_v2.9.0.dll'}
+check_files_exist(ffbin, tsbin, templateFiles)
 
 
 # -----------------------------------------------------------------------------
@@ -133,7 +104,7 @@ ffcase = FFCaseCreation(simPath, wts, tmax, zbot, vhub, shear, TIvalue, inflow_d
                         ffbin=ffbin, tsbin=tsbin, flat=flat)
 
 # ----------- Perform auxiliary steps in preparing the case
-ffcase.setTemplateFilename(templatePath, templateFiles)
+ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
 # ffcase.setTemplateFilename(templateFiles=templateFiles, templatePath=templatePath)
 # # ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
 ffcase.getDomainParameters()
