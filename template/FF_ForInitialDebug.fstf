@@ -19,29 +19,29 @@ False              ChkWndFiles        - Check all the ambient wind files for dat
 --- AMBIENT WIND: INFLOWWIND MODULE --- [used only for Mod_AmbWind=2 or 3]
 3.0                DT_Low             - Time step for low -resolution wind data interpolation; will be used as the global FAST.Farm time step (s) [>0.0]
 0.1                DT_High            - Time step for high-resolution wind data interpolation (s) [>0.0]
-153                NX_Low             - Number  of low -resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
-31                 NY_Low             - Number  of low -resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
-40                 NZ_Low             - Number  of low -resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
--400.0             X0_Low             - Origin  of low -resolution spatial nodes in X direction for wind data interpolation (m)
--600.0             Y0_Low             - Origin  of low -resolution spatial nodes in Y direction for wind data interpolation (m)
+3                  NX_Low             - Number  of low -resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
+3                  NY_Low             - Number  of low -resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
+3                  NZ_Low             - Number  of low -resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
+-1000.0            X0_Low             - Origin  of low -resolution spatial nodes in X direction for wind data interpolation (m)
+-500.0             Y0_Low             - Origin  of low -resolution spatial nodes in Y direction for wind data interpolation (m)
 5.0                Z0_Low             - Origin  of low -resolution spatial nodes in Z direction for wind data interpolation (m)
-9.71               dX_Low             - Spacing of low -resolution spatial nodes in X direction for wind data interpolation (m) [>0.0]
-20.0               dY_Low             - Spacing of low -resolution spatial nodes in Y direction for wind data interpolation (m) [>0.0]
-20.0               dZ_Low             - Spacing of low -resolution spatial nodes in Z direction for wind data interpolation (m) [>0.0]
-20                 NX_High            - Number  of high-resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
+1000.0             dX_Low             - Spacing of low -resolution spatial nodes in X direction for wind data interpolation (m) [>0.0]
+1000.0             dY_Low             - Spacing of low -resolution spatial nodes in Y direction for wind data interpolation (m) [>0.0]
+300.0              dZ_Low             - Spacing of low -resolution spatial nodes in Z direction for wind data interpolation (m) [>0.0]
+18                 NX_High            - Number  of high-resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
 20                 NY_High            - Number  of high-resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
-15                 NZ_High            - Number  of high-resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
-"../Inflow/150m_08mps_IW.dat"  InflowFile         - Name of file containing InflowWind module input parameters (quoted string)
+20                 NZ_High            - Number  of high-resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
+"IW_ForInitialDebug.dat"  InflowFile         - Name of file containing InflowWind module input parameters (quoted string)
 --- WIND TURBINES ---
 1                  NumTurbines        - Number of wind turbines (-) [>=1]                        [last 6 columns below used only for Mod_AmbWind=2 or 3]
 WT_X   WT_Y   WT_Z   WT_FASTInFile        X0_High  Y0_High  Z0_High  dX_High  dY_High  dZ_High
 (m)    (m)    (m)    (string)             (m)      (m)      (m)      (m)      (m)      (m)
-0.0     0.0   0.0    "WT.T.fst"          -200.0   -200.0     5.0      20.0     20.0     10.0
+0.0     0.0   0.0    "WT.T.fst"          -77.7    -80.0     5.0      20.0     20.0     20.0
 --- WAKE DYNAMICS ---
 1                  Mod_Wake           - Switch between wake formulations {1:Polar, 2:Curl, 3:Cartesian} (-) (switch)
 240                RotorDiamRef       - Reference turbine rotor diameter for wake calculations (m) [>0.0]
-5.5                dr                 - Radial increment of radial finite-difference grid (m) [>0.0]
-65                 NumRadii           - Number of radii in the radial finite-difference grid (-) [>=2]
+10.0               dr                 - Radial increment of radial finite-difference grid (m) [>0.0]
+40                 NumRadii           - Number of radii in the radial finite-difference grid (-) [>=2]
 140                NumPlanes          - Number of wake planes (-) [>=2]
 0.14               f_c                - Cutoff (corner) frequency of the low-pass time-filter for the wake advection, deflection, and meandering model [recommended=1.28*U0/R] (Hz) [>0.0] or DEFAULT [DEFAULT=12.5/R, R estimated from dr and NumRadii, not recommended]
 DEFAULT            C_HWkDfl_O         - Calibrated parameter in the correction for wake deflection defining the horizontal offset at the rotor                                               (m    ) or DEFAULT [DEFAULT= 0.0  ]
@@ -72,13 +72,13 @@ default            WAT_ScaleBox       - Flag to scale the input turbulence box t
 default            WAT_k_Def          - Calibrated parameters for the influence of the maximum wake deficit on wake-added turbulence (set of 5 parameters: k_Def, FMin, DMin, DMax, Exp) (-) [>=0.0, >=0.0 and <=1.0, >=0.0, >DMin, >=0.0] or DEFAULT [DEFAULT=[0.6, 0.0, 0.0, 2.0, 1.0 ]]
 default            WAT_k_Grad         - Calibrated parameters for the influence of the radial velocity gradient of the wake deficit on wake-added turbulence (set of 5 parameters: k_Grad, FMin, DMin, DMax, Exp) (-) [>=0.0, >=0.0 and <=1.0, >=0.0, >DMin, >=0.0] or DEFAULT [DEFAULT=[3.0, 0.0, 0.0, 12.0, 0.65]
 --- VISUALIZATION ---
-False              WrDisWind          - Write low- and high-resolution disturbed wind data to <RootName>.Low.Dis.t<n>.vtk etc.? (flag)
+True               WrDisWind          - Write low- and high-resolution disturbed wind data to <RootName>.Low.Dis.t<n>.vtk etc.? (flag)
 0                  NOutDisWindXY      - Number of XY planes for output of disturbed wind data across the low-resolution domain to <RootName>.Low.DisXY<n_out>.t<n>.vtk (-) [0 to 999]
 90.0               OutDisWindZ        - Z coordinates of XY planes for output of disturbed wind data across the low-resolution domain (m) [1 to NOutDisWindXY] [unused for NOutDisWindXY=0]
 0                  NOutDisWindYZ      - Number of YZ planes for output of disturbed wind data across the low-resolution domain to <RootName>/Low.DisYZ<n_out>.t<n>.vtk (-) [0 to 999]
-0,                 OutDisWindX        - X coordinates of YZ planes for output of disturbed wind data across the low-resolution domain (m) [1 to NOutDisWindYZ] [unused for NOutDisWindYZ=0]
+1126,1189          OutDisWindX        - X coordinates of YZ planes for output of disturbed wind data across the low-resolution domain (m) [1 to NOutDisWindYZ] [unused for NOutDisWindYZ=0]
 0                  NOutDisWindXZ      - Number of XZ planes for output of disturbed wind data across the low-resolution domain to <RootName>/Low.DisXZ<n_out>.t<n>.vtk (-) [0 to 999]
-0.0,               OutDisWindY        - Y coordinates of XZ planes for output of disturbed wind data across the low-resolution domain (m) [1 to NOutDisWindXZ] [unused for NOutDisWindXZ=0]
+1000.0             OutDisWindY        - Y coordinates of XZ planes for output of disturbed wind data across the low-resolution domain (m) [1 to NOutDisWindXZ] [unused for NOutDisWindXZ=0]
 3.0                WrDisDT            - Time step for disturbed wind visualization output (s) [>0.0] or DEFAULT [DEFAULT=DT_Low or DT_Low-VTK] [unused for WrDisWind=False and NOutDisWindXY=NOutDisWindYZ=NOutDisWindXZ=0]
 --- OUTPUT ---
 False              SumPrint           - Print summary data to <RootName>.sum? (flag)
@@ -88,7 +88,7 @@ False              SumPrint           - Print summary data to <RootName>.sum? (f
 True               TabDelim           - Use tab delimiters in text tabular output file? (flag) {uses spaces if False}
 "ES10.3E2"         OutFmt             - Format used for text tabular output, excluding the time channel.  Resulting field should be 10 characters. (quoted string)
 DEFAULT            OutAllPlanes       - Output all wake planes at all time steps. [DEFAULT=False]
-0                  NOutRadii          - Number of radial nodes         for wake output for an individual rotor (-) [0 to 20]
+7                  NOutRadii          - Number of radial nodes         for wake output for an individual rotor (-) [0 to 20]
 0, 2, 5, 11, 17, 21, 39  OutRadii     - List of radial nodes         for wake output for an individual rotor (-) [1 to NOutRadii] [unused for NOutRadii=0]
 2                  NOutDist           - Number of downstream distances for wake output for an individual rotor (-) [0 to 9 ]
 126.0, 189.0       OutDist            - List of downstream distances for wake output for an individual rotor (m) [1 to NOutDist ] [unused for NOutDist =0]

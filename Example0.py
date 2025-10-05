@@ -1,10 +1,15 @@
 import os
 import matplotlib.pyplot as plt
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup
+from openfast_toolbox.fastfarm.fastfarm import printWT
 
+FFfilepath = './template/FF_ForInitialDebug.fstf'
 FFfilepath = './template/FF.fstf'
 
-plotFastFarmSetup(FFfilepath)
+# plotFastFarmSetup(FFfilepath)
+# plotFastFarmSetup(FFfilepath, plane='XZ')
+# plotFastFarmSetup(FFfilepath, plane='YZ')
+
 
 
 
@@ -12,8 +17,10 @@ plotFastFarmSetup(FFfilepath)
 
 from openfast_toolbox.io.fast_input_file import FASTInputFile
 fstf = FASTInputFile(FFfilepath)
-print('Keys available in the input file: ', fstf.keys())
+# print('Keys available in the input file: ', fstf.keys())
 
+
+printWT(fstf)
 
 
 # fstf['dY_Low'] = 40

@@ -15,3 +15,12 @@ _*
 *.dylib
 
 *.ipynb_*
+
+
+ff_example*
+
+*.vtk
+vtk_ff
+
+*.out
+*.outb

@@ -76,9 +76,7 @@ wts = {
 # -----------------------------------------------------------------------------
 
 # ----------- Additional variables
-tmax = 40      # Total simulation time
 zbot = 1        # Bottom of your domain
-mod_wake = 2    # Wake model. 1: Polar, 2: Curled, 3: Cartesian
 
 # ----------- Inflow parameters
 inflowType = 'TS'
@@ -95,12 +93,14 @@ inflow_deg = [0]
 # -----------------------------------------------------------------------------
 # ----------- Low- and high-res boxes parameters
 # High-res boxes settings
+tmax = 40      # Total simulation time
+mod_wake    = 2    # Wake model. 1: Polar, 2: Curled, 3: Cartesian
 dt_high     =  0.50               # sampling frequency of high-res files
-ds_high     =  5                  # dx, dy, dz of high-res files
-extent_high =  1.2                # extent in y and x for each turbine, in D
-# Low-res boxes settings
 dt_low      = 2.0                 # sampling frequency of low-res files
+ds_high     =  5                  # dx, dy, dz of high-res files
 ds_low      = 25                  # dx, dy, dz of low-res files
+# Low-res boxes settings
+extent_high =  1.2                # extent in y and x for each turbine, in D
 extent_low  = [1.5,2.5,1.5,1.5,2] # extent in [xmin,xmax,ymin,ymax,zmax], in D
 
 
@@ -131,12 +131,11 @@ ffcase.TS_low_batch_prepare()
 if runTurbSim:
     ffcase.TS_low_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 
-# 
 # ----------- TurbSim high-res setup
 ffcase.TS_high_setup()
 ffcase.TS_high_batch_prepare()
-# if runTurbSim:
-#     ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
+if runTurbSim:
+    ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 # 
 # ----------- FAST.Farm setup
 ffcase.FF_setup()

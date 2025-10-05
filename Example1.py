@@ -1,6 +1,8 @@
+import matplotlib.pyplot as plt
 ### Load the openfast_toolbox and import the main class we will use `FFCaseCreation`
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation
 from openfast_toolbox.tools.strings import OK
+from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup
 
 OK('The toolbox was successfully loaded!')
 
@@ -8,8 +10,8 @@ OK('The toolbox was successfully loaded!')
 # --------------------------- Farm parameters ---------------------------------
 # -----------------------------------------------------------------------------
 # ----------- General turbine parameters
-cmax     = 5      # Maximum blade chord (m)
-fmax     = 10/6   # Maximum excitation frequency (Hz)
+cmax     = 6      # Maximum blade chord (m)
+fmax     = 10/6   # Maximum excitation frequency (Hz), affects dt_high
 Cmeander = 1.9    # Meandering constant (-)
 D = 240           # Rotor diameter (m)
 zhub = 150        # Hub height (m)
@@ -22,11 +24,13 @@ wts = {
     0 :{'x':  0.0, 'y':    0,  'z':0.0, 'D':D, 'zhub':zhub, 'cmax':cmax, 'fmax':fmax, 'Cmeander':Cmeander, 'name':'T1'},
     1 :{'x':  5*D, 'y':   D/2, 'z':0.0, 'D':D, 'zhub':zhub, 'cmax':cmax, 'fmax':fmax, 'Cmeander':Cmeander, 'name':'T2'},
 }
+
+plotFastFarmSetup(wts)
 # -----------------------------------------------------------------------------
 # ------------------- Inflow conditions and input files -----------------------
 # -----------------------------------------------------------------------------
 # ----------- Additional variables
-mod_wake = 2    # Wake model. 1: Polar, 2: Curled, 3: Cartesian. NOTE: Resolution guidelines vary based on this.
+mod_wake = 1    # Wake model. 1: Polar, 2: Curled, 3: Cartesian. NOTE: Resolution guidelines vary based on this.
 # ----------- Inflow parameters
 inflowType = 'TS' # TS: TurbSim, or LES: LES (VTK files needs to exist)
 # ----------- Desired sweeps
@@ -41,3 +45,6 @@ vhub       = [8]  # NOTE: use the maximum velocity here
 ffcc = FFCaseCreation(wts=wts, vhub=vhub, 
                       mod_wake=mod_wake,
                       inflowType=inflowType)
+
+
+plt.show()

@@ -11,6 +11,7 @@ from openfast_toolbox.io import FASTInputDeck, FASTInputFile, FASTOutputFile, Tu
 from openfast_toolbox.io.rosco_discon_file import ROSCODISCONFile
 from openfast_toolbox.fastfarm import writeFastFarm
 from openfast_toolbox.fastfarm import plotFastFarmSetup # Make it available 
+from openfast_toolbox.fastfarm import defaultOutRadii
 from openfast_toolbox.fastfarm.TurbSimCaseCreation import TSCaseCreation, writeTimeSeriesFile
 from openfast_toolbox.modules.servodyn import check_discon_library # Make it available
 
@@ -315,6 +316,9 @@ class FFCaseCreation:
         self.caseDirList = []
         self.DLLfilepath = None
         self.DLLext = None
+        self.batchfile_high = ''
+        self.batchfile_low  = ''
+        self.batchfile_ff   = ''
 
                                         
         if self.verbose is False: self.verbose = 0
@@ -742,7 +746,7 @@ class FFCaseCreation:
         from openfast_toolbox.fastfarm.AMRWindSimulation import AMRWindSimulation
 
         # Create values and keep variable names consistent across interfaces
-        dummy_dt = 0.1
+        dummy_dt = 0.1 # TODO TODO TODO determine it based on fmax
         dummy_ds = 1
         prob_lo = (-10005, -10005, 0)     # The 5 m offset is such that we
         prob_hi = ( 10005,  10005, 1000)  # have a cell center at (0,0)
@@ -1198,12 +1202,12 @@ class FFCaseCreation:
         if writeFiles:
             if self._were_all_turbine_files_copied() == False and self.attempt<=5:
                 self.attempt += 1
-                print(f'Not all files were copied successfully. Trying again. Attempt number {self.attempt}.')
+                WARN(f'Not all files were copied successfully. Trying again. Attempt number {self.attempt}.')
                 self.copyTurbineFilesForEachCase()
             elif self.attempt > 5:
-                WARN(f"Not all turbine files were copied successfully after 5 tries.")
-                print(f"         Check them manually. This shouldn't occur. Consider finding ")
-                print(f"         and fixing the bug and submitting a PR.")
+                FAIL(f"Not all turbine files were copied successfully after 5 tries.\n"\
+                     "Check them manually. This shouldn't occur.\n"\
+                     "Consider finding fixing the bug and submitting a PR.")
             else:
                 #if self.verbose>0: OK(f'All files were copied successfully.')
                 OK(f'All OpenFAST files were copied successfully.')
@@ -1263,7 +1267,8 @@ class FFCaseCreation:
                 if not _: return False
                 if self.Mod_AmbWind == 3:  # only for TS-driven cases
                     for seed in range(self.nSeeds):
-                        _ = checkIfExists(os.path.join(currPath,f'Seed_{seed}',self.IWfilename))
+                        seedPath = self.getCaseSeedPath(cond, case, seed)
+                        _ = checkIfExists(os.path.join(seedPath,self.IWfilename))
                         if not _: return False
 
                 for t in range(self.nTurbines):
@@ -1944,9 +1949,6 @@ class FFCaseCreation:
             os.makedirs(seedPath)
                 
         # ---------------- TurbSim Low boxes setup ------------------ #
-        # Set file to be created
-        currentTSLowFile = os.path.join(seedPath, 'Low_stillToBeModified.inp')
-        
         # Get properties needed for the creation of the low-res turbsim inp file
         D_       = self.allCases['D'   ].max().values
         HubHt_   = self.allCases['zhub'].max().values
@@ -1965,6 +1967,7 @@ class FFCaseCreation:
         TSlowbox = TSCaseCreation(D_, HubHt_, Vhub_, tivalue_, shear_, x=xlocs_, y=ylocs_, zbot=self.zbot,
                                        cmax=self.cmax, fmax=self.fmax, Cmeander=self.Cmeander, boxType='lowres', extent=self.extent_low,
                                        ds_low=self.ds_low, dt_low=self.dt_low, ds_high=self.ds_high, dt_high=self.dt_high, mod_wake=self.mod_wake)
+
         return TSlowbox
 
 
@@ -2008,7 +2011,7 @@ class FFCaseCreation:
                 # flowfield is shorter than the requested total simulation time. So if we ask for the low-res
                 # with the exact length we want, the high-res boxes might be shorter than tmax. Note that the 
                 # total FAST.Farm simulation time remains unmodified from what the user requested.
-                self.TSlowbox.writeTSFile(self.turbsimLowfilepath, currentTSLowFile, tmax=self.tmax+self.dt_low, verbose=self.verbose)
+                self.TSlowbox.writeTSFile(fileIn=self.turbsimLowfilepath, fileOut=currentTSLowFile, tmax=self.tmax+self.dt_low, verbose=self.verbose)
 
                 # Modify some values and save file (some have already been set in the call above)
                 Lowinp = FASTInputFile(currentTSLowFile)
@@ -2072,6 +2075,8 @@ class FFCaseCreation:
 
     def TS_low_batch_run(self,  showOutputs=True, showCommand=True, verbose=True, **kwargs):
         from openfast_toolbox.case_generation.runner import runBatch
+        if not os.path.exists(self.batchfile_low):
+            raise FFException(f'Batch file does not exist: {self.batchfile_low}.\nMake sure you run TS_low_batch_prepare first.')
         stat = runBatch(self.batchfile_low, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
         if stat!=0:
             raise FFException(f'Batch file failed: {self.batchfile_low}')
@@ -2366,7 +2371,7 @@ class FFCaseCreation:
                                                    cmax=self.cmax, fmax=self.fmax, Cmeander=self.Cmeander, boxType='highres', extent=self.extent_high,
                                                    ds_low=self.ds_low, dt_low=self.dt_low, ds_high=self.ds_high, dt_high=self.dt_high, mod_wake=self.mod_wake)
 
-                        currentTS.writeTSFile(self.turbsimHighfilepath, currentTSHighFile, tmax=self.tmax_low, turb=t, verbose=self.verbose)
+                        currentTS.writeTSFile(fileIn=self.turbsimHighfilepath, fileOut=currentTSHighFile, tmax=self.tmax_low, turb=t, verbose=self.verbose)
         
                         # Modify some values and save file (some have already been set in the call above)
                         Highinp = FASTInputFile(currentTSHighFile)
@@ -2412,6 +2417,8 @@ class FFCaseCreation:
 
     def TS_high_batch_run(self, showOutputs=True, showCommand=True, verbose=True, **kwargs):
         from openfast_toolbox.case_generation.runner import runBatch
+        if not os.path.exists(self.batchfile_high):
+            raise FFException(f'Batch file does not exist: {self.batchfile_high}.\nMake sure you run TS_high_batch_prepare first.')
         stat = runBatch(self.batchfile_high, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
         if stat!=0:
             raise FFException(f'Batch file failed: {self.batchfile_high}')
@@ -2757,8 +2764,12 @@ class FFCaseCreation:
                     ff_file['NumRadii']  = int(np.ceil(3*D_/(2*self.dr) + 1))
                     ff_file['NumPlanes'] = int(np.ceil( 20*D_/(self.dt_low*Vhub_*(1-1/6)) ) )
 
-                    # Ensure radii outputs are within [0, NumRadii-1]
                     ff_file['OutRadii'] = [ff_file['OutRadii']] if isinstance(ff_file['OutRadii'],(float,int)) else ff_file['OutRadii'] 
+                    # If NOutRadii is 0 we find some default radii
+                    if ff_file['NOutRadii']==0:
+                        ff_file['OutRadii'] = defaultOutRadii(ff_file['dr'], ff_file['NumRadii'], self.D/2)[0]
+                        ff_file['NOutRadii']= len(ff_file['OutRadii'])
+                    # Ensure radii outputs are within [0, NumRadii-1]
                     for i, r in enumerate(ff_file['OutRadii']):
                         if r > ff_file['NumRadii']-1:
                             ff_file['NOutRadii'] = i
@@ -2869,8 +2880,13 @@ class FFCaseCreation:
                     ff_file['NumRadii']  = int(np.ceil(3*D_/(2*self.dr) + 1))
                     ff_file['NumPlanes'] = int(np.ceil( 20*D_/(self.dt_low*Vhub_*(1-1/6)) ) )
         
-                    # Ensure radii outputs are within [0, NumRadii-1]
                     ff_file['OutRadii'] = [ff_file['OutRadii']] if isinstance(ff_file['OutRadii'],(float,int)) else ff_file['OutRadii'] 
+                    # If NOutRadii is 0 we find some default radii
+                    if ff_file['NOutRadii']==0:
+                        ff_file['OutRadii'] = defaultOutRadii(ff_file['dr'], ff_file['NumRadii'], self.D/2)[0]
+                        ff_file['NOutRadii']= len(ff_file['OutRadii'])
+
+                    # Ensure radii outputs are within [0, NumRadii-1]
                     for i, r in enumerate(ff_file['OutRadii']):
                         if r > ff_file['NumRadii']-1:
                             ff_file['NOutRadii'] = i
@@ -3055,7 +3071,11 @@ class FFCaseCreation:
 
     def FF_batch_run(self, showOutputs=True, showCommand=True, verbose=True, **kwargs):
         from openfast_toolbox.case_generation.runner import runBatch
-        runBatch(self.batchfile_ff, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        if not os.path.exists(self.batchfile_ff):
+            raise FFException(f'Batch file does not exist: {self.batchfile_ff}.\nMake sure you run FF_batch_prepare first.')
+        stat = runBatch(self.batchfile_ff, showOutputs=showOutputs, showCommand=showCommand, verbose=verbose, **kwargs)
+        if stat!=0:
+            raise FFException(f'Batch file failed: {self.batchfile_ff}')
 
     def FF_slurm_prepare(self, slurmfilepath, inplace=True, useSed=True):
         # ----------------------------------------------

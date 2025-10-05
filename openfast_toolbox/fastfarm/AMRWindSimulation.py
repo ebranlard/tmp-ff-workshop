@@ -276,6 +276,8 @@ class AMRWindSimulation:
             # Calculate dt of high-res per guidelines
             dt_hr_max = 1 / (2 * self.fmax_max)
             self.dt_high_les = getMultipleOf(dt_hr_max, multipleof=self.dt) # Ensure dt_hr is a multiple of the AMR-Wind timestep
+            if self.dt_high_les ==0:
+                raise ValueError(f"AMR-Wind timestep dt={self.dt} is too coarse for high resolution domain! The time step based on `fmax` is {dt_hr_max}, which is too small to be rounded as a multiple of dt.")
         else:
             # The dt of high-res is given
             self.dt_high_les = self.dt_hr

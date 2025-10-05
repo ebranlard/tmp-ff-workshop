@@ -137,26 +137,39 @@ def pretty_num(x, digits=None, nchar=None, align='right', xmin=1e-16, center0=Tr
       - fixed number of characters by setting nchar
 
     """
-    if np.abs(x)<xmin:
-        x=0
+    if nchar is not None and digits is not None:
+        method='fixed_number_of_char_and_digits'
 
-    if nchar is None:
+    elif nchar is None:
         nchar=7+digits
         method='fixed_number_of_digits'
     else:
-        digits=int(nchar/2)
+        if digits is None:
+            digits=int(nchar/2)
         method='fixed_number_of_char'
         if nchar<8:
             raise Exception('nchar needs to be at least 7 to accomodate exp notation')
 
+    try:
+        x = float(x)
+    except:
+        s=str(x)
+        if align=='right':
+            return s.rjust(nchar)
+        else:
+            return s.ljust(nchar)
+    
+    if np.abs(x)<xmin:
+        x=0
 
     if x==0 and center0:
         s= ''.join([' ']*(nchar-digits-2))+ '0'+''.join([' ']*(digits+1))
     elif method=='fixed_number_of_digits':
         # --- Fixed number of digits
         if type(x)==int:
-            raise NotImplementedError()
-        if digits==6:
+            s = f"{x:d}"
+            #raise NotImplementedError()
+        elif digits==6:
             if abs(x)<1000000 and abs(x)>1e-7:
                 s= "{:.6f}".format(x)
             else:
@@ -211,7 +224,17 @@ def pretty_num(x, digits=None, nchar=None, align='right', xmin=1e-16, center0=Tr
         else:
             sfmt='{:'+str(nchar)+'.'+str(nchar-7)+'e'+'}' # Need 7 char for exp
         s = sfmt.format(x)
-#         print(xlow, xhigh, sfmt, len(s))
+        #print(xlow, xhigh, sfmt, len(s), '>'+s+'<')
+    elif method=='fixed_number_of_char_and_digits':
+        xlow  = 10**(-(nchar-2))
+        xhigh = 10**( (nchar-1))
+        s = f"{x:.{digits+1}g}"  # general format with significant digits
+        if len(s) > nchar:
+            # fallback: scientific notation
+            s = f"{x:.{digits+1}e}"
+        # truncate or pad to exactly nchar characters
+        if len(s) > nchar:
+            s = s[:nchar]
     else:
         raise NotImplementedError(method)
 

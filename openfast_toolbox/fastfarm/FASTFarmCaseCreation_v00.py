@@ -1691,283 +1691,283 @@ class FFCaseCreation:
                 # flowfield is shorter than the requested total simulation time. So if we ask for the low-res
                 # with the exact length we want, the high-res boxes might be shorter than tmax. Note that the 
                 # total FAST.Farm simulation time remains unmodified from what the user requested.
-                self.TSlowbox.writeTSFile(self.turbsimLowfilepath, currentTSLowFile, tmax=self.tmax+self.dt_low, verbose=self.verbose)
+            self.TSlowbox.writeTSFile(fileIn=self.turbsimLowfilepath, fileOut=currentTSLowFile, tmax=self.tmax+self.dt_low, verbose=self.verbose)
 
-                # Modify some values and save file (some have already been set in the call above)
-                Lowinp = FASTInputFile(currentTSLowFile)
-                Lowinp['RandSeed1'] = self.seedValues[seed]
-                Lowinp['PLExp']     = shear_
-                #Lowinp['latitude']  = latitude  # Not used when IECKAI model is selected.
-                Lowinp['InCDec1']   = Lowinp['InCDec2'] = Lowinp['InCDec3'] = f'"{a} {b/(8.1*Lambda1):.8f}"'
-                if writeFiles:
-                    lowFileName = os.path.join(seedPath, 'Low.inp') 
-                    Lowinp.write(lowFileName)
+            # Modify some values and save file (some have already been set in the call above)
+            Lowinp = FASTInputFile(currentTSLowFile)
+            Lowinp['RandSeed1'] = self.seedValues[seed]
+            Lowinp['PLExp']     = shear_
+            #Lowinp['latitude']  = latitude  # Not used when IECKAI model is selected.
+            Lowinp['InCDec1']   = Lowinp['InCDec2'] = Lowinp['InCDec3'] = f'"{a} {b/(8.1*Lambda1):.8f}"'
+            if writeFiles:
+                lowFileName = os.path.join(seedPath, 'Low.inp') 
+                Lowinp.write(lowFileName)
 
-                # Let's remove the original file
-                os.remove(os.path.join(seedPath, 'Low_stillToBeModified.inp'))
+            # Let's remove the original file
+            os.remove(os.path.join(seedPath, 'Low_stillToBeModified.inp'))
 
-        self.TSlowBoxFilesCreatedBool = True
-
-
-    def sed_inplace(self, sed_command, inplace):
-        '''
-        sed in place does not work on standard input. A workaround here
-        is to save to another file and then copy over
-        '''
-
-        if inplace:
-            _ = subprocess.call(sed_command, cwd=self.path, shell=True)
-        else:
-            sed_split = sed_command.split(' ')
-            filename  = sed_split[-1]
-            sed_split = f'sed ' + ' '.join(sed_split[2:]) + f"> {os.path.join(self.path, 'temp.txt')}"
-            _ = subprocess.call(sed_split, cwd=self.path, shell=True)
-            shutil.move(os.path.join(self.path,'temp.txt'), os.path.join(self.path,filename))
+    self.TSlowBoxFilesCreatedBool = True
 
 
-    def TS_low_slurm_prepare(self, slurmfilepath, inplace=True):
+def sed_inplace(self, sed_command, inplace):
+    '''
+    sed in place does not work on standard input. A workaround here
+    is to save to another file and then copy over
+    '''
 
-        # --------------------------------------------------
-        # ----- Prepare SLURM script for Low-res boxes -----
-        # --------------------------------------------------
-
-        if not os.path.isfile(slurmfilepath):
-            raise ValueError (f'SLURM script for low-res box {slurmfilepath} does not exist.')
-        self.slurmfilename_low = os.path.basename(slurmfilepath)
-
-        shutil.copy2(slurmfilepath, os.path.join(self.path, self.slurmfilename_low))
-        
-        # Determine memory-per-cpu
-        memory_per_cpu = int(150000/self.nSeeds)
-
-        # Change job name (for convenience only)
-        sed_command = f"sed -i 's|^#SBATCH --job-name=lowBox|#SBATCH --job-name=lowBox_{os.path.basename(self.path)}|g' {self.slurmfilename_low}"
-        self.sed_inplace(sed_command, inplace)
-        # Change logfile name (for convenience only)
-        sed_command = f"sed -i 's|#SBATCH --output log.lowBox|#SBATCH --output log.turbsim_low|g' {self.slurmfilename_low}"
-        self.sed_inplace(sed_command, inplace)
-        # Change memory per cpu
-        sed_command = f"sed -i 's|--mem-per-cpu=25000M|--mem-per-cpu={memory_per_cpu}M|g' {self.slurmfilename_low}"
-        self.sed_inplace(sed_command, inplace)
-        # Change number of nodes values 
-        sed_command = f"sed -i 's|^#SBATCH --nodes.*|#SBATCH --nodes={int(np.ceil(self.nConditions*self.nSeeds/6))}|g' {self.slurmfilename_low}"
-        self.sed_inplace(sed_command, inplace)
-        # Change the fastfarm binary to be called
-        sed_command = f"""sed -i "s|^turbsimbin.*|turbsimbin='{self.tsbin}'|g" {self.slurmfilename_low}"""
-        self.sed_inplace(sed_command, inplace)
-        # Change the path inside the script to the desired one
-        sed_command = f"""sed -i "s|^basepath.*|basepath='{self.path}'|g" {self.slurmfilename_low}"""
-        self.sed_inplace(sed_command, inplace)
-        # Assemble list of conditions and write it
-        listtoprint = "' '".join(self.condDirList)
-        sed_command = f"""sed -i "s|^condList.*|condList=('{listtoprint}')|g" {self.slurmfilename_low}"""
-        self.sed_inplace(sed_command, inplace)
-        # Change the number of seeds
-        sed_command = f"sed -i 's|^nSeeds.*|nSeeds={self.nSeeds}|g' {self.slurmfilename_low}"
-        self.sed_inplace(sed_command, inplace)
-
-        if self.nSeeds > 6:
-            print(f'--- WARNING: The memory-per-cpu on the low-res boxes SLURM script might be too low given {self.nSeeds} seeds.')
+    if inplace:
+        _ = subprocess.call(sed_command, cwd=self.path, shell=True)
+    else:
+        sed_split = sed_command.split(' ')
+        filename  = sed_split[-1]
+        sed_split = f'sed ' + ' '.join(sed_split[2:]) + f"> {os.path.join(self.path, 'temp.txt')}"
+        _ = subprocess.call(sed_split, cwd=self.path, shell=True)
+        shutil.move(os.path.join(self.path,'temp.txt'), os.path.join(self.path,filename))
 
 
-    def TS_low_slurm_submit(self, qos='normal', A=None, t=None, p=None, inplace=True):
-        # ---------------------------------
-        # ----- Run turbSim Low boxes -----
-        # ---------------------------------
-        # Submit the script to SLURM
-        options = f"--qos='{qos}' "
-        if A is not None:
-            options += f'-A {A} '
-        if t is not None:
-            options += f'-t {t} '
-        if p is not None:
-            options += f'-p {p} '
+def TS_low_slurm_prepare(self, slurmfilepath, inplace=True):
 
-        sub_command = f"sbatch {options}{self.slurmfilename_low}"
-        print(f'Calling: {sub_command}')
-        self.sed_inplace(sub_command, inplace)
+    # --------------------------------------------------
+    # ----- Prepare SLURM script for Low-res boxes -----
+    # --------------------------------------------------
 
+    if not os.path.isfile(slurmfilepath):
+        raise ValueError (f'SLURM script for low-res box {slurmfilepath} does not exist.')
+    self.slurmfilename_low = os.path.basename(slurmfilepath)
 
-    def TS_low_createSymlinks(self):
-        # Create symbolic links for all of the time-series and the Low.bts files too
-        
-        notepath = os.getcwd()
-        os.chdir(self.path)
-        for cond in range(self.nConditions):
-            for case in range(self.nCases):
-                for seed in range(self.nSeeds):
-                    try:
-                        src = os.path.join('..', '..', '..', '..', self.condDirList[cond], f'Seed_{seed}', 'Low.bts')
-                        dst = os.path.join(self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
-                        os.symlink(src, dst)                
-                    except FileExistsError:
-                        print(f'    File {dst} already exists. Skipping symlink.')
-        os.chdir(notepath)
+    shutil.copy2(slurmfilepath, os.path.join(self.path, self.slurmfilename_low))
+    
+    # Determine memory-per-cpu
+    memory_per_cpu = int(150000/self.nSeeds)
 
+    # Change job name (for convenience only)
+    sed_command = f"sed -i 's|^#SBATCH --job-name=lowBox|#SBATCH --job-name=lowBox_{os.path.basename(self.path)}|g' {self.slurmfilename_low}"
+    self.sed_inplace(sed_command, inplace)
+    # Change logfile name (for convenience only)
+    sed_command = f"sed -i 's|#SBATCH --output log.lowBox|#SBATCH --output log.turbsim_low|g' {self.slurmfilename_low}"
+    self.sed_inplace(sed_command, inplace)
+    # Change memory per cpu
+    sed_command = f"sed -i 's|--mem-per-cpu=25000M|--mem-per-cpu={memory_per_cpu}M|g' {self.slurmfilename_low}"
+    self.sed_inplace(sed_command, inplace)
+    # Change number of nodes values 
+    sed_command = f"sed -i 's|^#SBATCH --nodes.*|#SBATCH --nodes={int(np.ceil(self.nConditions*self.nSeeds/6))}|g' {self.slurmfilename_low}"
+    self.sed_inplace(sed_command, inplace)
+    # Change the fastfarm binary to be called
+    sed_command = f"""sed -i "s|^turbsimbin.*|turbsimbin='{self.tsbin}'|g" {self.slurmfilename_low}"""
+    self.sed_inplace(sed_command, inplace)
+    # Change the path inside the script to the desired one
+    sed_command = f"""sed -i "s|^basepath.*|basepath='{self.path}'|g" {self.slurmfilename_low}"""
+    self.sed_inplace(sed_command, inplace)
+    # Assemble list of conditions and write it
+    listtoprint = "' '".join(self.condDirList)
+    sed_command = f"""sed -i "s|^condList.*|condList=('{listtoprint}')|g" {self.slurmfilename_low}"""
+    self.sed_inplace(sed_command, inplace)
+    # Change the number of seeds
+    sed_command = f"sed -i 's|^nSeeds.*|nSeeds={self.nSeeds}|g' {self.slurmfilename_low}"
+    self.sed_inplace(sed_command, inplace)
 
-    def getDomainParameters(self):
-
-        # If the low box setup hasn't been called (e.g. LES run), do it once to get domain extents
-        if not self.TSlowBoxFilesCreatedBool:
-            if self.verbose>1: print('    Running a TurbSim setup once to get domain extents')
-            self.TS_low_setup(writeFiles=False, runOnce=True)
-
-        # Figure out how many (and which) high boxes actually need to be executed. Remember that yaw misalignment, SED/ADsk models,
-        # and sweep in yaw do not require extra TurbSim runs
-        self.nHighBoxCases = len(np.unique(self.inflow_deg))  # some wind dir might be repeated for sweep on yaws
-        
-        # This is a new method, but I'm not sure if it will work always, so let's leave the one above and check it
-        uniquewdir = np.unique(self.allCases.inflow_deg)
-        allHighBoxCases = []
-        for currwdir in uniquewdir:
-            # Get first case to have the wind direction currwdir
-            firstCaseWithInflow_i = self.allCases.where(self.allCases['inflow_deg'] == currwdir, drop=True).isel(case=0)
-            allHighBoxCases.append(firstCaseWithInflow_i)
-        self.allHighBoxCases = xr.concat(allHighBoxCases, dim='case')
-
-        if self.nHighBoxCases != len(self.allHighBoxCases.case):
-            raise ValueError(f'The number of cases do not match as expected. {self.nHighBoxCases} unique wind directions, but {len(self.allHighBoxCases.case)} unique cases.')
-        
-        # Determine offsets from turbines coordinate frame to TurbSim coordinate frame
-        self.yoffset_turbsOrigin2TSOrigin = -( (self.TSlowbox.ymax - self.TSlowbox.ymin)/2 + self.TSlowbox.ymin )
-        self.xoffset_turbsOrigin2TSOrigin = -self.extent_low[0]*self.D
-        
-        if self.verbose>0:
-            print(f"    The y offset between the turbine ref frame and turbsim is {self.yoffset_turbsOrigin2TSOrigin}")
-            print(f"    The x offset between the turbine ref frame and turbsim is {self.xoffset_turbsOrigin2TSOrigin}")
-
-        if self.verbose>2:
-            print(f'allHighBoxCases is:')
-            print(self.allHighBoxCases)
+    if self.nSeeds > 6:
+        print(f'--- WARNING: The memory-per-cpu on the low-res boxes SLURM script might be too low given {self.nSeeds} seeds.')
 
 
-    def TS_high_get_time_series(self):
+def TS_low_slurm_submit(self, qos='normal', A=None, t=None, p=None, inplace=True):
+    # ---------------------------------
+    # ----- Run turbSim Low boxes -----
+    # ---------------------------------
+    # Submit the script to SLURM
+    options = f"--qos='{qos}' "
+    if A is not None:
+        options += f'-A {A} '
+    if t is not None:
+        options += f'-t {t} '
+    if p is not None:
+        options += f'-p {p} '
 
-        # Loop on all conditions/seeds extracting time series from the Low box at turbines location
-        for cond in range(self.nConditions):
+    sub_command = f"sbatch {options}{self.slurmfilename_low}"
+    print(f'Calling: {sub_command}')
+    self.sed_inplace(sub_command, inplace)
+
+
+def TS_low_createSymlinks(self):
+    # Create symbolic links for all of the time-series and the Low.bts files too
+    
+    notepath = os.getcwd()
+    os.chdir(self.path)
+    for cond in range(self.nConditions):
+        for case in range(self.nCases):
             for seed in range(self.nSeeds):
-                condSeedPath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
-        
-                # Read output .bts for current seed
-                bts = TurbSimFile(os.path.join(condSeedPath, 'Low.bts'))
-                bts['t']  = np.round(bts['t'],  6) # rounding single precision read as double precision
-                bts['dt'] = np.round(bts['dt'], 6)
-        
-                for case in range(self.nHighBoxCases):
-                    # Get actual case number given the high-box that need to be saved
-                    case = self.allHighBoxCases.isel(case=case)['case'].values
-                    
-                    caseSeedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
-                    
-                    for t in range(self.nTurbines):
-                        # Recover turbine properties of the current case
-                        HubHt_   = self.allCases.sel(case=case, turbine=t)['zhub'].values
-                        xloc_    = self.allCases.sel(case=case, turbine=t)['Tx'  ].values
-                        yloc_    = self.allCases.sel(case=case, turbine=t)['Ty'  ].values
-        
-                        # Turbine location in TurbSim reference frame
-                        xt = xloc_ + self.xoffset_turbsOrigin2TSOrigin
-                        yt = yloc_ + self.yoffset_turbsOrigin2TSOrigin
-        
-                        # Get indices of turbine location in TurbSim files
-                        jTurb, kTurb = bts.closestPoint(y=yt,z=HubHt_)
-                        Hub_series = bts['z'][kTurb]
-        
-                        # Get indices of the half height position (TurbSim's hub height)
-                        jMid, kMid = bts.iMid
-        
-                        # Get time series at the box center to get mean vhub and create time array.
-                        Vmid = bts['u'][0,:,jMid,kMid]
-                        time = bts.t
-                        
-                        # Given the nature of how TS decides on the total time, let's get the actual tmax from the low-res
-                        self.tmax_low = time[-1]
-        
-                        # The time-series need to be shifted depending on the turbine location, so we need to find how many
-                        # grid points (time steps) the data have convected. We use the mean streamwise component for that
-                        start_time_step = round( (xt/Vmid.mean())/bts.dt ) 
-        
-                        # Get time-series given rolling
-                        uvel = np.roll(bts['u'][0, :, jTurb, kTurb], start_time_step)
-                        vvel = np.roll(bts['u'][1, :, jTurb, kTurb], start_time_step)
-                        wvel = np.roll(bts['u'][2, :, jTurb, kTurb], start_time_step)
-
-                        # Map it to high-res time and dt (both) 
-                        time_hr = np.arange(time[0], self.tmax_low+self.dt_high, self.dt_high)
-                        uvel_hr = np.interp(time_hr, time, uvel)
-                        vvel_hr = np.interp(time_hr, time, vvel)
-                        wvel_hr = np.interp(time_hr, time, wvel)
-
-                        # Checks
-                        assert len(time_hr)==len(uvel_hr)
-                        assert len(uvel_hr)==len(vvel_hr)
-                        assert len(vvel_hr)==len(wvel_hr)
-        
-                        # Save timeseries as CondXX/Seed_Z/USRTimeSeries_T*.txt. This file will later be copied to CondXX/CaseYY/Seed_Z
-                        timeSeriesOutputFile = os.path.join(caseSeedPath, f'USRTimeSeries_T{t+1}.txt')
-        
-                        # The reference frame used in the time-series is the inertial frame of the high-res box (local).
-                        # Sometimes the point where we want to place the turbine at exists and then we can set y=0. For example, suppose the low-res
-                        # grid has y = ..., 980, 1000, 1020, ..., and we want to place a turbine at y=1000. The high-res box has 5m resolution. Then,
-                        # the time-series will be pulled from _exactly_ y=1000, and since the low-res grid has a grid point there too, so we can put
-                        # y=0 on the time-series input file. However, if we want the turbine at y=998, we must account for the difference since this 
-                        # y value is not a grid point of the low-res box. So we compute an offset between the turbine location and the nearest grid
-                        # point in the low-res box, and then pass this offset to the time-series file. In this example, the offset is 2 m, thus the
-                        # time-series file will have a y of 2 m.
-                        yoffset = bts['y'][jTurb] - yt
-                        if yoffset != 0 and self.verbose>1:
-                            print(f"Seed {seed}, Case {case}: Turbine {t+1} is not at a grid point location. Tubine is at y={yloc_}",\
-                                  f"on the turbine reference frame, which is y={yt} on the low-res TurbSim reference frame. The",\
-                                  f"nearest grid point in y is {bts['y'][jTurb]} so printing y={yoffset} to the time-series file.")
-                        writeTimeSeriesFile(timeSeriesOutputFile, yoffset, Hub_series, uvel_hr, vvel_hr, wvel_hr, time_hr)
+                try:
+                    src = os.path.join('..', '..', '..', '..', self.condDirList[cond], f'Seed_{seed}', 'Low.bts')
+                    dst = os.path.join(self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim', 'Low.bts')
+                    os.symlink(src, dst)                
+                except FileExistsError:
+                    print(f'    File {dst} already exists. Skipping symlink.')
+    os.chdir(notepath)
 
 
+def getDomainParameters(self):
 
-    def TS_high_setup(self, writeFiles=True):
+    # If the low box setup hasn't been called (e.g. LES run), do it once to get domain extents
+    if not self.TSlowBoxFilesCreatedBool:
+        if self.verbose>1: print('    Running a TurbSim setup once to get domain extents')
+        self.TS_low_setup(writeFiles=False, runOnce=True)
 
-        #todo: Check if the low-res boxes were created successfully
+    # Figure out how many (and which) high boxes actually need to be executed. Remember that yaw misalignment, SED/ADsk models,
+    # and sweep in yaw do not require extra TurbSim runs
+    self.nHighBoxCases = len(np.unique(self.inflow_deg))  # some wind dir might be repeated for sweep on yaws
+    
+    # This is a new method, but I'm not sure if it will work always, so let's leave the one above and check it
+    uniquewdir = np.unique(self.allCases.inflow_deg)
+    allHighBoxCases = []
+    for currwdir in uniquewdir:
+        # Get first case to have the wind direction currwdir
+        firstCaseWithInflow_i = self.allCases.where(self.allCases['inflow_deg'] == currwdir, drop=True).isel(case=0)
+        allHighBoxCases.append(firstCaseWithInflow_i)
+    self.allHighBoxCases = xr.concat(allHighBoxCases, dim='case')
 
-        # Create symbolic links for the low-res boxes
-        self.TS_low_createSymlinks()
+    if self.nHighBoxCases != len(self.allHighBoxCases.case):
+        raise ValueError(f'The number of cases do not match as expected. {self.nHighBoxCases} unique wind directions, but {len(self.allHighBoxCases.case)} unique cases.')
+    
+    # Determine offsets from turbines coordinate frame to TurbSim coordinate frame
+    self.yoffset_turbsOrigin2TSOrigin = -( (self.TSlowbox.ymax - self.TSlowbox.ymin)/2 + self.TSlowbox.ymin )
+    self.xoffset_turbsOrigin2TSOrigin = -self.extent_low[0]*self.D
+    
+    if self.verbose>0:
+        print(f"    The y offset between the turbine ref frame and turbsim is {self.yoffset_turbsOrigin2TSOrigin}")
+        print(f"    The x offset between the turbine ref frame and turbsim is {self.xoffset_turbsOrigin2TSOrigin}")
 
-        # Open low-res boxes and extract time-series at turbine locations
-        self.TS_high_get_time_series()
+    if self.verbose>2:
+        print(f'allHighBoxCases is:')
+        print(self.allHighBoxCases)
 
-        # Loop on all conditions/cases/seeds setting up the High boxes
-        highFilesName = []
-        for cond in range(self.nConditions):
+
+def TS_high_get_time_series(self):
+
+    # Loop on all conditions/seeds extracting time series from the Low box at turbines location
+    for cond in range(self.nConditions):
+        for seed in range(self.nSeeds):
+            condSeedPath = os.path.join(self.path, self.condDirList[cond], f'Seed_{seed}')
+    
+            # Read output .bts for current seed
+            bts = TurbSimFile(os.path.join(condSeedPath, 'Low.bts'))
+            bts['t']  = np.round(bts['t'],  6) # rounding single precision read as double precision
+            bts['dt'] = np.round(bts['dt'], 6)
+    
             for case in range(self.nHighBoxCases):
                 # Get actual case number given the high-box that need to be saved
                 case = self.allHighBoxCases.isel(case=case)['case'].values
-                if self.verbose>3:
-                    print(f'Generating high-res box setup for cond {cond} ({self.condDirList[cond]}), case {case} ({self.caseDirList[case]}).')
-                for seed in range(self.nSeeds):
-                    seedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
-        
-                    for t in range(self.nTurbines):
-        
-                        # ---------------- TurbSim High boxes setup ------------------ #
-                        currentTSHighFile = os.path.join(seedPath, f'HighT{t+1}_stillToBeModified.inp')
-        
-                        # Get properties needed for the creation of the high-res turbsim inp file
-                        D_       = self.allCases.sel(case=case, turbine=t)['D'   ].values
-                        HubHt_   = self.allCases.sel(case=case, turbine=t)['zhub'].values
-                        xloc_    = self.allCases.sel(case=case, turbine=t)['Tx'  ].values
-                        yloc_    = self.allCases.sel(case=case, turbine=t)['Ty'  ].values
-                        Vhub_    = self.allCond.sel(cond=cond)['vhub'   ].values
-                        shear_   = self.allCond.sel(cond=cond)['shear'  ].values
-                        tivalue_ = self.allCond.sel(cond=cond)['TIvalue'].values
-                        
-                        # Coherence parameters
-                        a = 12;  b=0.12                            # IEC 61400-3 ed4, app C, eq C.16
-                        Lambda1 = 0.7*HubHt_ if HubHt_<60 else 42  # IEC 61400-3 ed4, sec 6.3.1, eq 5 
-        
-                        # Create and write new Low.inp files creating the proper box with proper resolution
-                        currentTS = TSCaseCreation(D_, HubHt_, Vhub_, tivalue_, shear_, x=xloc_, y=yloc_, zbot=self.zbot,
-                                                   cmax=self.cmax, fmax=self.fmax, Cmeander=self.Cmeander, boxType='highres', extent=self.extent_high,
-                                                   ds_low=self.ds_low, dt_low=self.dt_low, ds_high=self.ds_high, dt_high=self.dt_high, mod_wake=self.mod_wake)
+                
+                caseSeedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
+                
+                for t in range(self.nTurbines):
+                    # Recover turbine properties of the current case
+                    HubHt_   = self.allCases.sel(case=case, turbine=t)['zhub'].values
+                    xloc_    = self.allCases.sel(case=case, turbine=t)['Tx'  ].values
+                    yloc_    = self.allCases.sel(case=case, turbine=t)['Ty'  ].values
+    
+                    # Turbine location in TurbSim reference frame
+                    xt = xloc_ + self.xoffset_turbsOrigin2TSOrigin
+                    yt = yloc_ + self.yoffset_turbsOrigin2TSOrigin
+    
+                    # Get indices of turbine location in TurbSim files
+                    jTurb, kTurb = bts.closestPoint(y=yt,z=HubHt_)
+                    Hub_series = bts['z'][kTurb]
+    
+                    # Get indices of the half height position (TurbSim's hub height)
+                    jMid, kMid = bts.iMid
+    
+                    # Get time series at the box center to get mean vhub and create time array.
+                    Vmid = bts['u'][0,:,jMid,kMid]
+                    time = bts.t
+                    
+                    # Given the nature of how TS decides on the total time, let's get the actual tmax from the low-res
+                    self.tmax_low = time[-1]
+    
+                    # The time-series need to be shifted depending on the turbine location, so we need to find how many
+                    # grid points (time steps) the data have convected. We use the mean streamwise component for that
+                    start_time_step = round( (xt/Vmid.mean())/bts.dt ) 
+    
+                    # Get time-series given rolling
+                    uvel = np.roll(bts['u'][0, :, jTurb, kTurb], start_time_step)
+                    vvel = np.roll(bts['u'][1, :, jTurb, kTurb], start_time_step)
+                    wvel = np.roll(bts['u'][2, :, jTurb, kTurb], start_time_step)
 
-                        currentTS.writeTSFile(self.turbsimHighfilepath, currentTSHighFile, tmax=self.tmax_low, turb=t, verbose=self.verbose)
+                    # Map it to high-res time and dt (both) 
+                    time_hr = np.arange(time[0], self.tmax_low+self.dt_high, self.dt_high)
+                    uvel_hr = np.interp(time_hr, time, uvel)
+                    vvel_hr = np.interp(time_hr, time, vvel)
+                    wvel_hr = np.interp(time_hr, time, wvel)
+
+                    # Checks
+                    assert len(time_hr)==len(uvel_hr)
+                    assert len(uvel_hr)==len(vvel_hr)
+                    assert len(vvel_hr)==len(wvel_hr)
+    
+                    # Save timeseries as CondXX/Seed_Z/USRTimeSeries_T*.txt. This file will later be copied to CondXX/CaseYY/Seed_Z
+                    timeSeriesOutputFile = os.path.join(caseSeedPath, f'USRTimeSeries_T{t+1}.txt')
+    
+                    # The reference frame used in the time-series is the inertial frame of the high-res box (local).
+                    # Sometimes the point where we want to place the turbine at exists and then we can set y=0. For example, suppose the low-res
+                    # grid has y = ..., 980, 1000, 1020, ..., and we want to place a turbine at y=1000. The high-res box has 5m resolution. Then,
+                    # the time-series will be pulled from _exactly_ y=1000, and since the low-res grid has a grid point there too, so we can put
+                    # y=0 on the time-series input file. However, if we want the turbine at y=998, we must account for the difference since this 
+                    # y value is not a grid point of the low-res box. So we compute an offset between the turbine location and the nearest grid
+                    # point in the low-res box, and then pass this offset to the time-series file. In this example, the offset is 2 m, thus the
+                    # time-series file will have a y of 2 m.
+                    yoffset = bts['y'][jTurb] - yt
+                    if yoffset != 0 and self.verbose>1:
+                        print(f"Seed {seed}, Case {case}: Turbine {t+1} is not at a grid point location. Tubine is at y={yloc_}",\
+                              f"on the turbine reference frame, which is y={yt} on the low-res TurbSim reference frame. The",\
+                              f"nearest grid point in y is {bts['y'][jTurb]} so printing y={yoffset} to the time-series file.")
+                    writeTimeSeriesFile(timeSeriesOutputFile, yoffset, Hub_series, uvel_hr, vvel_hr, wvel_hr, time_hr)
+
+
+
+def TS_high_setup(self, writeFiles=True):
+
+    #todo: Check if the low-res boxes were created successfully
+
+    # Create symbolic links for the low-res boxes
+    self.TS_low_createSymlinks()
+
+    # Open low-res boxes and extract time-series at turbine locations
+    self.TS_high_get_time_series()
+
+    # Loop on all conditions/cases/seeds setting up the High boxes
+    highFilesName = []
+    for cond in range(self.nConditions):
+        for case in range(self.nHighBoxCases):
+            # Get actual case number given the high-box that need to be saved
+            case = self.allHighBoxCases.isel(case=case)['case'].values
+            if self.verbose>3:
+                print(f'Generating high-res box setup for cond {cond} ({self.condDirList[cond]}), case {case} ({self.caseDirList[case]}).')
+            for seed in range(self.nSeeds):
+                seedPath = os.path.join(self.path, self.condDirList[cond], self.caseDirList[case], f'Seed_{seed}', 'TurbSim')
+    
+                for t in range(self.nTurbines):
+    
+                    # ---------------- TurbSim High boxes setup ------------------ #
+                    currentTSHighFile = os.path.join(seedPath, f'HighT{t+1}_stillToBeModified.inp')
+    
+                    # Get properties needed for the creation of the high-res turbsim inp file
+                    D_       = self.allCases.sel(case=case, turbine=t)['D'   ].values
+                    HubHt_   = self.allCases.sel(case=case, turbine=t)['zhub'].values
+                    xloc_    = self.allCases.sel(case=case, turbine=t)['Tx'  ].values
+                    yloc_    = self.allCases.sel(case=case, turbine=t)['Ty'  ].values
+                    Vhub_    = self.allCond.sel(cond=cond)['vhub'   ].values
+                    shear_   = self.allCond.sel(cond=cond)['shear'  ].values
+                    tivalue_ = self.allCond.sel(cond=cond)['TIvalue'].values
+                    
+                    # Coherence parameters
+                    a = 12;  b=0.12                            # IEC 61400-3 ed4, app C, eq C.16
+                    Lambda1 = 0.7*HubHt_ if HubHt_<60 else 42  # IEC 61400-3 ed4, sec 6.3.1, eq 5 
+    
+                    # Create and write new Low.inp files creating the proper box with proper resolution
+                    currentTS = TSCaseCreation(D_, HubHt_, Vhub_, tivalue_, shear_, x=xloc_, y=yloc_, zbot=self.zbot,
+                                               cmax=self.cmax, fmax=self.fmax, Cmeander=self.Cmeander, boxType='highres', extent=self.extent_high,
+                                               ds_low=self.ds_low, dt_low=self.dt_low, ds_high=self.ds_high, dt_high=self.dt_high, mod_wake=self.mod_wake)
+
+                    currentTS.writeTSFile(self.turbsimHighfilepath, currentTSHighFile, tmax=self.tmax_low, turb=t, verbose=self.verbose)
         
                         # Modify some values and save file (some have already been set in the call above)
                         Highinp = FASTInputFile(currentTSHighFile)
