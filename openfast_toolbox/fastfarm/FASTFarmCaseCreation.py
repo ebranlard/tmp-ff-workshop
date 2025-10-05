@@ -44,24 +44,29 @@ def safe_cd(newdir):
 
 def check_files_exist(*args):
     import os
+    b = []
     if len(args)>1:
         for a in args:
-            check_files_exist(a)
-        return
+            b.append(check_files_exist(a))
+        return np.all(b)
     files = args[0]
     if isinstance(files, list):
         for f in files:
-            check_files_exist(f)
+            b.append(check_files_exist(f))
+        return np.all(b)
     elif isinstance(files, dict):
         for k,v in files.items():
-            check_files_exist(v)
+            b.append(check_files_exist(v))
+        return np.all(b)
     elif isinstance(files, str):
         # 
         f = files
         if not os.path.exists(f):
             FAIL(f'File not found: {f}')
+            return False
         else:
             OK  (f'File exists   : {f}')
+            return True
     else:
         raise NotImplementedError(f'Input of unknown type: {files}')
 

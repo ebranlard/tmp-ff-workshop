@@ -49,8 +49,8 @@ POINTS:
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from welib.weio.fast_input_file import FASTInputFile
-from welib.system.eva import eigMCK
+from openfast_toolbox.io.fast_input_file import FASTInputFile
+from openfast_toolbox.tools.eva import eigMCK
 
 # --------------------------------------------------------------------------------}
 # --- GLOBAL CONSTANTS 

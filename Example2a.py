@@ -1,16 +1,5 @@
 import matplotlib.pyplot as plt
 import os
-# from welib.essentials import *
-
-# Essential tools
-# from welib.tools.tictoc import Timer
-# from welib.tools.colors import fColrs, python_colors, color_scales, lighten_color
-# from welib.tools.figure import setFigurePath, setFigureFont, export2png, export2pdf
-# from welib.tools.clean_exceptions import *
-# from welib.tools.strings import printMat, printVec, printDict, printVar, printVarTex, pretty_num
-# from welib.common import WELIBException
-
-
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation, check_files_exist
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, plotFastFarmSetup, check_discon_library
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty
@@ -33,7 +22,7 @@ tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim exec
 templateFSTF= './template/FF.fstf'
 templateFiles = {'libdisconfilepath': './template/libdiscon_rosco_v2.9.0.dll'}
 check_files_exist(ffbin, tsbin, templateFiles)
-
+check_discon_library(templateFiles['libdisconfilepath'])
 
 # -----------------------------------------------------------------------------
 # --------------------------- Farm parameters ---------------------------------
@@ -110,24 +99,23 @@ ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFST
 ffcase.getDomainParameters()
 ffcase.copyTurbineFilesForEachCase()
 # 
-# # -----------------------------------------------------------------------------
-# # ---------------------- TurbSim setup and execution --------------------------
-# # -----------------------------------------------------------------------------
-# # ----------- TurbSim low-res setup
+# -----------------------------------------------------------------------------
+# ---------------------- TurbSim setup and execution --------------------------
+# -----------------------------------------------------------------------------
+# ----------- TurbSim low-res setup
 ffcase.TS_low_setup()
 # ----------- Prepare script for submission
 ffcase.TS_low_batch_prepare()
 if runTurbSim:
     ffcase.TS_low_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
-# 
-# # ----------- TurbSim high-res setup
-# ffcase.plot()
+
+# ----------- TurbSim high-res setup
 ffcase.TS_high_setup()
 ffcase.TS_high_batch_prepare()
 if runTurbSim:
     ffcase.TS_high_batch_run(showOutputs=True, showCommand=True, shell_cmd='bash')
 # 
-# # ----------- FAST.Farm setup
+# ----------- FAST.Farm setup
 ffcase.FF_setup()
 print('FFFiles:\n', ffcase.FFFiles)
 # modifyProperty(ffcase.FFFiles[0], 'TMax', 80)
@@ -135,7 +123,6 @@ modifyProperty(ffcase.FFFiles[0], 'NX_Low', 100)
 # 
 # 
 ffcase.FF_batch_prepare()
-# 
 ffcase.FF_batch_run()
 
 plt.show()
