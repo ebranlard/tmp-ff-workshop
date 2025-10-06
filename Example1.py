@@ -24,7 +24,6 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty # Help
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, check_discon_library # Helper functions 
 from openfast_toolbox.fastfarm.fastfarm import plotFastFarmSetup # Low level FAST.Farm functions 
 from openfast_toolbox.tools.strings import OK, FAIL # helper functions, colorful printing functions
-OK('The toolbox was successfully loaded!')
 
 # --------------------------------------------------------------------------------}
 # --- 1.1 Parameters affecting the resolution

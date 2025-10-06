@@ -12,7 +12,8 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty # Help
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, check_discon_library # Helper functions 
 from openfast_toolbox.fastfarm.fastfarm import plotFastFarmSetup # Low level FAST.Farm functions 
 from openfast_toolbox.tools.strings import OK, FAIL # helper functions, colorful printing functions
-OK('The toolbox was successfully loaded!')
+
+
 
 # **Adapt the path below if necessary for your machine. The paths can be relative or absolute.**
 ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
