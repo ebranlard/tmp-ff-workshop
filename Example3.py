@@ -12,13 +12,27 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty # Help
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, check_discon_library # Helper functions 
 from openfast_toolbox.fastfarm.fastfarm import plotFastFarmSetup # Low level FAST.Farm functions 
 from openfast_toolbox.tools.strings import OK, FAIL # helper functions, colorful printing functions
+try:
+    import dill
+except ImportError as e:
+    FAIL('The python package fill is not installed. FFCaseCreation cannot be saved to disk.\nPlease install it using:\n`pip install dill`\n\nNOTE: this is not critical for running Example 3, but will prevent some of the postprocessing in Example 4. So feel free to uncomment.')
+    raise e
 
 
 
 # **Adapt the path below if necessary for your machine. The paths can be relative or absolute.**
+# --- Windows
 ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
 tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
 libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dll' # relative or absolute path of ROSCO library
+# --- Linux
+# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.so' # relative or absolute path of ROSCO library
+# --- Mac
+# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dylib' # relative or absolute path of ROSCO library
 
 check_files_exist(ffbin, tsbin);
 check_discon_library(libdisconfilepath);

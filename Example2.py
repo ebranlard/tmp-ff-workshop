@@ -41,11 +41,19 @@ from openfast_toolbox.fastfarm.fastfarm import plotFastFarmSetup # Low level FAS
 from openfast_toolbox.tools.strings import OK, FAIL # helper functions, colorful printing functions
 
 
-
 # **Adapt the path below if necessary for your machine. The paths can be relative or absolute.**
+# --- Windows
 ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
 tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
 libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dll' # relative or absolute path of ROSCO library
+# --- Linux
+# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.so' # relative or absolute path of ROSCO library
+# --- Mac
+# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dylib' # relative or absolute path of ROSCO library
 
 check_files_exist(ffbin, tsbin);
 check_discon_library(libdisconfilepath);
@@ -63,8 +71,6 @@ templateFSTF = './template/FF.fstf'
 templateFiles = {'libdisconfilepath' : libdisconfilepath,}
 check_files_exist(ffbin, tsbin, templateFSTF, templateFiles)
 check_discon_library(libdisconfilepath);
-
-
 # -----------------------------------------------------------------------------
 # --------------------------- Farm parameters ---------------------------------
 # -----------------------------------------------------------------------------
@@ -109,8 +115,6 @@ extent_high =  1.2                # extent in y and x for each turbine, in D
 dt_low      = 2.0                 # sampling time of low-res files [s]
 ds_low      = 25                  # dx, dy, dz of low-res files [m]
 extent_low  = [1.5,2.5,1.5,1.5,2] # extent in [xmin,xmax,ymin,ymax,zmax], in D
-
-
 fig = plotFastFarmSetup(wts)
 
 # -----------------------------------------------------------------------------
