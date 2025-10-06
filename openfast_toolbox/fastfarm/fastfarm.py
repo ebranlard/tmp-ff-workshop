@@ -465,9 +465,9 @@ def col(i):
 
 
 
-def plotFastFarmWTs(wts, fig=None):
+def plotFastFarmWTs(wts, fig=None, figsize=(13,5)):
     if fig is None:
-        fig = plt.figure(figsize=(13.5,8))
+        fig = plt.figure(figsize=figsize)
         ax  = fig.add_subplot(111,aspect="equal")
 
     Dmax = -100
@@ -491,7 +491,7 @@ def plotFastFarmWTs(wts, fig=None):
 
     return fig
 
-def plotFastFarmSetup(ff, grid=True, fig=None, D=None, plane=None, hubHeight=None, showLegend=True):
+def plotFastFarmSetup(ff, grid=True, fig=None, D=None, plane=None, hubHeight=None, showLegend=True, figsize=(13.5,8)):
     """ 
     Plot a FAST.Farm setup.
     INPUTS:
@@ -515,7 +515,7 @@ def plotFastFarmSetup(ff, grid=True, fig=None, D=None, plane=None, hubHeight=Non
         return 
     elif isinstance(ff, dict):
         if 'x' in ff[list(ff.keys())[0]].keys():
-            return plotFastFarmWTs(ff)
+            return plotFastFarmWTs(ff, figsize=figsize)
     else:
         raise NotImplementedError('Unsopported input type for argument ff')
 
@@ -596,7 +596,7 @@ def plotFastFarmSetup(ff, grid=True, fig=None, D=None, plane=None, hubHeight=Non
     for plane in planes:
         iX, iY = plane2I[plane]
 
-        fig = plt.figure(figsize=(13.5,8))
+        fig = plt.figure(figsize=figsize)
         ax  = fig.add_subplot(111,aspect="equal")
 
         # --- Plot Low and High res

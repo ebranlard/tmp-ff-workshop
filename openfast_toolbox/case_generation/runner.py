@@ -1,5 +1,6 @@
 # --- For cmd.py
 import os
+import sys
 import subprocess
 import multiprocessing
 
@@ -124,7 +125,104 @@ def run_cmd(input_file_or_arglist, exe, wait=True, showOutputs=False, showComman
     p.exe            = exe
     return p
 
-def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWindow=False, closeWindow=True, shell_cmd='bash'):
+def in_jupyter():
+    try:
+        from IPython import get_ipython
+        return 'ipykernel' in str(type(get_ipython()))
+    except:
+        return False
+
+def stream_output(std, buffer_lines=5, prefix='|', line_count=True):
+    if in_jupyter():
+        from IPython.display import display, update_display
+        # --- Jupyter mode ---
+        #handles = [display("DUMMY LINE FOR BUFFER", display_id=True) for _ in range(buffer_lines)]
+        #buffer = []
+        #for line in std:
+        #    line = line.rstrip()
+        #    buffer.append(line)
+        #    if len(buffer) > buffer_lines:
+        #        buffer.pop(0)
+        #    # update all display slots
+        #    for i, handle in enumerate(handles):
+        #        text = buffer[i] if i < len(buffer) else ""
+        #        update_display(text, display_id=handle.display_id)
+
+        # --- alternative using HTML
+        from IPython.display import display, update_display, HTML
+        import html as _html
+
+        # --- Jupyter mode with HTML ---
+        handles = [display(HTML("<pre style='margin:0'>{}DUMMY LINE FOR BUFFER</pre>".format(prefix)), display_id=True)
+                   for _ in range(buffer_lines)]
+        buffer = []
+        iLine=0 
+        for line in std:
+            iLine+=1
+            line = line.rstrip("\r\n")
+            if line_count:
+                line = f"{iLine:>5}: {line}"
+            line = f"{prefix}{line}"
+            buffer.append(line)
+            if len(buffer) > buffer_lines:
+                buffer.pop(0)
+            # update all display slots
+            for i, handle in enumerate(handles):
+                text = buffer[i] if i < len(buffer) else ""
+
+                html_text = "<pre style='margin:0'>{}</pre>".format(_html.escape(text) if text else "&nbsp;")
+                update_display(HTML(html_text), display_id=handle.display_id)
+
+    else:
+        import shutil
+
+        term_width = shutil.get_terminal_size((80, 20)).columns
+        for _ in range(buffer_lines):
+           print('DummyLine')
+        # --- Terminal mode ---
+        buffer = []
+        iLine = 0
+        for line in std:
+            iLine += 1
+            line = line.rstrip()
+            line = line.rstrip()
+            if line_count:
+                line = f"{iLine:>5}: {line}"
+            line = f"{prefix}{line}"
+            line = line[:term_width]  # truncate to fit in one line
+            buffer.append(line)
+            if len(buffer) > buffer_lines:
+                buffer.pop(0)
+            sys.stdout.write("\033[F\033[K" * len(buffer))
+            for l in buffer:
+                print(l)
+            sys.stdout.flush()
+
+def stdHandler(std, method='show'):
+    from collections import deque
+    import sys
+
+    if method =='show':
+        for line in std:
+            print(line, end='')
+        return None
+
+    elif method =='store':
+        return std.read()  # read everything
+
+    elif method.startswith('buffer'):
+        buffer_lines = int(method.split('_')[1])
+        buffer = deque(maxlen=buffer_lines)
+        print('------ Beginning of buffer outputs ----------------------------------')
+        stream_output(std, buffer_lines=buffer_lines)
+        print('------ End of buffer outputs ----------------------------------------')
+        return None
+
+
+
+
+
+def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWindow=False, closeWindow=True, shell_cmd='bash', nBuffer=0):
     """ 
     Run one or several batch files
     TODO: error handling, status, parallel
@@ -135,11 +233,16 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
     For output to show in a Jupyter notebook, we cannot use stdout=None, or stderr=None, we need to use Pipe
 
     """
+    import sys
     windows = (os.name == "nt")
 
     if showOutputs:
         STDOut= None
+        std_method = 'show'
+        if nBuffer>0:
+            std_method=f'buffer_{nBuffer}'
     else:
+        std_method = 'store'
         #STDOut= open(os.devnull, 'w') 
         #STDOut= subprocess.DEVNULL
         STDOut= subprocess.PIPE
@@ -155,9 +258,9 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
             command = [shell_cmd, batchfileRel]
 
         if showCommand:
-            print('>>>> Running batch file:', batchfileRel)
-            print('          using command:', command)
-            print('           in directory:', batchDir)
+            print('[INFO] Running batch file:', batchfileRel)
+            print('            using command:', command)
+            print('             in directory:', batchDir)
 
         if newWindow:
             # --- Launch a new window (windows only for now)
@@ -171,17 +274,14 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
             # --- We wait for outputs
             stdout_data = None
             with safe_cd(batchDir): # Automatically go back to current directory
-                try:
+#                 try:
+                if True:
                     # --- Option 2
                     # Use Popen so we can print outputs live
                     #proc = subprocess.Popen([batchfileRel], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, shell=shell, text=True )
                     proc = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=shell, text=True )
                     # Print or store stdout
-                    if showOutputs:
-                        for line in proc.stdout:
-                            print(line, end='')
-                    else:
-                        stdout_data = proc.stdout.read()  # read everything
+                    stdout_data = stdHandler(proc.stdout, method=std_method)
                     # Always print errors output line by line
                     for line in proc.stderr:
                         print(line, end='')
@@ -191,12 +291,12 @@ def runBatch(batchfiles, showOutputs=True, showCommand=True, verbose=True, newWi
                     if returncode != 0 and stdout_data:
                         print("\n--- Captured stdout ---")
                         print(stdout_data)
-                except FileNotFoundError as e:
-                    print('[FAIL] Running Batch failed, a file or command was not found see below:\n'+str(e))
-                    returncode=-10
-                except Exception as e:
-                    print('[FAIL] Running Batch failed, see below:\n'+str(e))
-                    returncode=-10
+#                 except FileNotFoundError as e:
+#                     print('[FAIL] Running Batch failed, a file or command was not found see below:\n'+str(e))
+#                     returncode=-10
+#                 except Exception as e:
+#                     print('[FAIL] Running Batch failed, see below:\n'+str(e))
+#                     returncode=-10
             return returncode
 
 

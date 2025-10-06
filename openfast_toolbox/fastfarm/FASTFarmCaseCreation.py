@@ -272,6 +272,7 @@ class FFCaseCreation:
             Verbosity level, given as integers <5
 
         '''
+        np.random.seed(12) # For reproducibility (e.g. random azimuth)
         # --- Store in object
         self.path        = path
         self.wts         = wts
@@ -1311,7 +1312,7 @@ class FFCaseCreation:
         return True
 
 
-    def setTemplateFilename(self, templatePath=None, templateFiles=None, templateFSTF=None):
+    def setTemplateFilename(self, templatePath=None, templateFiles=None, templateFSTF=None, verbose=None):
         """
         Function to receive, check, and set all the template files.
 
@@ -1376,6 +1377,8 @@ class FFCaseCreation:
 
         """
         INFO('Reading and checking template files')
+        if verbose is None:
+            verbose=self.verbose
 
         # Set default values
         #TODO TODO TODO Replace this by a dictionary so that we can for loop over it more easily
@@ -1416,6 +1419,8 @@ class FFCaseCreation:
 
         if not isinstance(templateFiles, dict):
             raise ValueError(f'templateFiles should be a dictionary with the following valid entries: {valid_keys}')
+
+        templateFiles = templateFiles.copy() # we create a copy to avoid changing the user input
 
         # Join templatePath to most templateFiles 
         # TODO TODO, not all templateFiles have the same convention, this needs to be changed.
@@ -1463,7 +1468,6 @@ class FFCaseCreation:
                         if '.T.' in filebase:
                             filebase = fread[key_deck].rsplit('.T.', 1)[0]+'.T'
                         templateFiles[key_tpl] = filebase.replace('\\','/')
-                        print('key_deck', key_deck, key_tpl)
                         #INFO(f'Template {key_tpl:23s}={filebase}')
 
         # TODO In theory, we should need the templatePath beyond this point.
@@ -1480,7 +1484,7 @@ class FFCaseCreation:
         #    - *filename: os.path.basename(filepath), the filename only
         # --------------------------------------------------------------------------------
         for key, value in templateFiles.items():
-            INFO(f'Template {key:23s}={value}')
+            if verbose>0: INFO(f'Template {key:23s}={value}')
 
         if not valid_keys >= set(templateFiles.keys()):
             raise ValueError(f'Extra entries are present in the dictionary. '\
@@ -1735,7 +1739,7 @@ class FFCaseCreation:
             self.DLLfilepath = os.path.join(DLL_parentDir, f'{libdisconfilename}.T') # No extension
             currLibdiscon    = os.path.join(DLL_parentDir, f'{libdisconfilename}.T{t+1}.{self.DLLext}')
             if not os.path.isfile(currLibdiscon):
-                if self.verbose>0: print(f'    Creating a copy of the controller {libdisconfilepath} in {currLibdiscon}')
+                if self.verbose>0: print(f'    Creating a copy of the controller {self.libdisconfilepath} in {currLibdiscon}')
                 shutil.copy2(self.libdisconfilepath, currLibdiscon)
                 copied=True
         

@@ -3,7 +3,7 @@ Simulation with one turbine using precursor VTK
 --- SIMULATION CONTROL ---
 False              Echo               - Echo input data to <RootName>.ech? (flag)
 FATAL              AbortLevel         - Error level when simulation should abort (string) {"WARNING", "SEVERE", "FATAL"}
-100.0              TMax               - Total run time (s) [>=0.0]
+5.0                TMax               - Total run time (s) [>=0.0]
 2                  Mod_AmbWind        - Ambient wind model (-) (switch) {1: high-fidelity precursor in VTK format, 2: one InflowWind module, 3: multiple instances of InflowWind module}
 2                  Mod_WaveField      - Wave field handling (-) (switch) {1: use individual HydroDyn inputs without adjustment, 2: adjust wave phases based on turbine offsets from farm origin}
 0                  Mod_SharedMooring  - Shared mooring system model (switch) {0: None, 3=MoorDyn}}
@@ -19,28 +19,28 @@ False              ChkWndFiles        - Check all the ambient wind files for dat
 --- AMBIENT WIND: INFLOWWIND MODULE --- [used only for Mod_AmbWind=2 or 3]
 3.0                DT_Low             - Time step for low -resolution wind data interpolation; will be used as the global FAST.Farm time step (s) [>0.0]
 0.1                DT_High            - Time step for high-resolution wind data interpolation (s) [>0.0]
-3                  NX_Low             - Number  of low -resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
-3                  NY_Low             - Number  of low -resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
-3                  NZ_Low             - Number  of low -resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
+2                  NX_Low             - Number  of low -resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
+2                  NY_Low             - Number  of low -resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
+2                  NZ_Low             - Number  of low -resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
 -1000.0            X0_Low             - Origin  of low -resolution spatial nodes in X direction for wind data interpolation (m)
--500.0             Y0_Low             - Origin  of low -resolution spatial nodes in Y direction for wind data interpolation (m)
-5.0                Z0_Low             - Origin  of low -resolution spatial nodes in Z direction for wind data interpolation (m)
-1000.0             dX_Low             - Spacing of low -resolution spatial nodes in X direction for wind data interpolation (m) [>0.0]
-1000.0             dY_Low             - Spacing of low -resolution spatial nodes in Y direction for wind data interpolation (m) [>0.0]
-300.0              dZ_Low             - Spacing of low -resolution spatial nodes in Z direction for wind data interpolation (m) [>0.0]
-18                 NX_High            - Number  of high-resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
-20                 NY_High            - Number  of high-resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
-20                 NZ_High            - Number  of high-resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
+-1000.0             Y0_Low             - Origin  of low -resolution spatial nodes in Y direction for wind data interpolation (m)
+0.0                Z0_Low             - Origin  of low -resolution spatial nodes in Z direction for wind data interpolation (m)
+2000.0             dX_Low             - Spacing of low -resolution spatial nodes in X direction for wind data interpolation (m) [>0.0]
+2000.0             dY_Low             - Spacing of low -resolution spatial nodes in Y direction for wind data interpolation (m) [>0.0]
+800.0             dZ_Low             - Spacing of low -resolution spatial nodes in Z direction for wind data interpolation (m) [>0.0]
+2                  NX_High            - Number  of high-resolution spatial nodes in X direction for wind data interpolation (-) [>=2]
+2                  NY_High            - Number  of high-resolution spatial nodes in Y direction for wind data interpolation (-) [>=2]
+2                  NZ_High            - Number  of high-resolution spatial nodes in Z direction for wind data interpolation (-) [>=2]
 "IW_ForInitialDebug.dat"  InflowFile         - Name of file containing InflowWind module input parameters (quoted string)
 --- WIND TURBINES ---
 1                  NumTurbines        - Number of wind turbines (-) [>=1]                        [last 6 columns below used only for Mod_AmbWind=2 or 3]
 WT_X   WT_Y   WT_Z   WT_FASTInFile        X0_High  Y0_High  Z0_High  dX_High  dY_High  dZ_High
-(m)    (m)    (m)    (string)             (m)      (m)      (m)      (m)      (m)      (m)
-0.0     0.0   0.0    "WT.T.fst"          -77.7    -80.0     5.0      20.0     20.0     20.0
+(m)    (m)    (m)    (string)             (m)      (m)      (m)      (m)        (m)      (m)
+0.0     0.0   0.0    "WT.T.fst"          -500.0    -500.0    1.0     1000.0    1000.0     500.0
 --- WAKE DYNAMICS ---
 1                  Mod_Wake           - Switch between wake formulations {1:Polar, 2:Curl, 3:Cartesian} (-) (switch)
 240                RotorDiamRef       - Reference turbine rotor diameter for wake calculations (m) [>0.0]
-10.0               dr                 - Radial increment of radial finite-difference grid (m) [>0.0]
+30.0               dr                 - Radial increment of radial finite-difference grid (m) [>0.0]
 40                 NumRadii           - Number of radii in the radial finite-difference grid (-) [>=2]
 140                NumPlanes          - Number of wake planes (-) [>=2]
 0.14               f_c                - Cutoff (corner) frequency of the low-pass time-filter for the wake advection, deflection, and meandering model [recommended=1.28*U0/R] (Hz) [>0.0] or DEFAULT [DEFAULT=12.5/R, R estimated from dr and NumRadii, not recommended]

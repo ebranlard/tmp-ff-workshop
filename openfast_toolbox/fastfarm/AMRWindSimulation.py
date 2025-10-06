@@ -639,7 +639,7 @@ class AMRWindSimulation:
         		f"AMR-Wind grid (subset): {amr_xyzgrid_at_lhr_level_cc[amr_index  ]}, {amr_xyzgrid_at_lhr_level_cc[amr_index+1]}, "\
         		f"{amr_xyzgrid_at_lhr_level_cc[amr_index+2]}, {amr_xyzgrid_at_lhr_level_cc[amr_index+3]}, ..."
             if self.given_ds_lr:
-                if self.verbose>0 and len(error_msg>0): WARN(f'{error_msg}')
+                if self.verbose>0 and len(error_msg)>0: WARN(f'{error_msg}')
             else:
                 raise ValueError(error_msg)
 

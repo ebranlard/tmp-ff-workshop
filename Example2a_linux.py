@@ -79,11 +79,11 @@ inflow_deg = [0]
 tmax = 120      # Total simulation time
 mod_wake    = 1    # Wake model. 1: Polar, 2: Curled, 3: Cartesian
 dt_high     =  0.5                # sampling frequency of high-res files
-dt_low      = 2.0                 # sampling frequency of low-res files
 ds_high     = 10.0                 # dx, dy, dz of high-res files
-ds_low      = 25                  # dx, dy, dz of low-res files
-# Low-res boxes settings
 extent_high =  1.2                # extent in y and x for each turbine, in D
+# Low-res boxes settings
+dt_low      =  2.0                 # sampling frequency of low-res files
+ds_low      =  25                  # dx, dy, dz of low-res files
 extent_low  = [1.5,2.5,1.5,1.5,2] # extent in [xmin,xmax,ymin,ymax,zmax], in D
 
 
@@ -99,11 +99,9 @@ ffcase = FFCaseCreation(simPath, wts, tmax, zbot, vhub, shear, TIvalue, inflow_d
 
 # ----------- Perform auxiliary steps in preparing the case
 ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
-# ffcase.setTemplateFilename(templateFiles=templateFiles, templatePath=templatePath)
-# # ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
 ffcase.getDomainParameters()
 ffcase.copyTurbineFilesForEachCase()
-# 
+
 # -----------------------------------------------------------------------------
 # ---------------------- TurbSim setup and execution --------------------------
 # -----------------------------------------------------------------------------
@@ -130,8 +128,6 @@ modifyProperty(ffcase.FFFiles[0], 'NX_Low', 100)
 ffcase.FF_batch_prepare()
 ffcase.FF_batch_run()
 
-
-#ffcase.plot()
 plt.show()
 
 

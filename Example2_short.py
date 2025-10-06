@@ -6,7 +6,7 @@ from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty
 from openfast_toolbox.case_generation.runner import runBatch
 
 runTurbSim=True
-flat=False
+flat=True
 
 
 # -----------------------------------------------------------------------------
@@ -18,11 +18,17 @@ else:
     simPath = 'ff_example2a_directory'            # folder (preferably new) where all the simulation files will be written
 ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
 tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
+# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
 
 templateFSTF= './template/FF.fstf'
 templateFiles = {'libdisconfilepath': './template/libdiscon_rosco_v2.9.0.dll'}
 check_files_exist(ffbin, tsbin, templateFiles)
 check_discon_library(templateFiles['libdisconfilepath'])
+if not check_files_exist(ffbin, tsbin, templateFiles):
+    raise Exception('Some files are missing')
+if not check_discon_library(templateFiles['libdisconfilepath']):
+    raise Exception('DISCO not ready')
 
 # -----------------------------------------------------------------------------
 # --------------------------- Farm parameters ---------------------------------
@@ -74,11 +80,11 @@ inflow_deg = [0]
 tmax = 120      # Total simulation time
 mod_wake    = 1    # Wake model. 1: Polar, 2: Curled, 3: Cartesian
 dt_high     =  0.5                # sampling frequency of high-res files
-dt_low      =  2.0                 # sampling frequency of low-res files
 ds_high     = 10.0                 # dx, dy, dz of high-res files
-ds_low      =  25                  # dx, dy, dz of low-res files
-# Low-res boxes settings
 extent_high =  1.2                # extent in y and x for each turbine, in D
+# Low-res boxes settings
+dt_low      =  2.0                 # sampling frequency of low-res files
+ds_low      =  25                  # dx, dy, dz of low-res files
 extent_low  = [1.5,2.5,1.5,1.5,2] # extent in [xmin,xmax,ymin,ymax,zmax], in D
 
 
@@ -94,11 +100,9 @@ ffcase = FFCaseCreation(simPath, wts, tmax, zbot, vhub, shear, TIvalue, inflow_d
 
 # ----------- Perform auxiliary steps in preparing the case
 ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
-# ffcase.setTemplateFilename(templateFiles=templateFiles, templatePath=templatePath)
-# # ffcase.setTemplateFilename(templateFiles=templateFiles, templateFSTF=templateFSTF)
 ffcase.getDomainParameters()
 ffcase.copyTurbineFilesForEachCase()
-# 
+ 
 # -----------------------------------------------------------------------------
 # ---------------------- TurbSim setup and execution --------------------------
 # -----------------------------------------------------------------------------

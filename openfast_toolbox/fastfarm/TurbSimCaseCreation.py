@@ -224,7 +224,7 @@ class TSCaseCreation:
         """
         if fileIn is None or fileIn in ['unused', '"unused"']:
             NewFile = True
-            print('[INFO] No TurbSim template provided, using a Dummy TurbSim file')
+            if verbose>0: print('[INFO] No TurbSim template provided, using a Dummy TurbSim file')
         WriteTSFile(fileIn=fileIn, fileOut=fileOut, params=self, NewFile=NewFile, tpath=tpath, tmax=tmax, turb=turb, verbose=verbose)
 
 
@@ -457,12 +457,12 @@ def WriteDummyTSFile(fileOut):
 
 
 
-def writeTimeSeriesFile(fileOut,yloc,zloc,u,v,w,time):
+def writeTimeSeriesFile(fileOut,yloc,zloc,u,v,w,time, verbose=0):
     """
     Write a TurbSim primary input file, 
     """
 
-    print(f'Writing {fileOut}')
+    if verbose>0: print(f'Writing {fileOut}')
     # --- Writing TurbSim user-defined time series file
     with open(fileOut, 'w') as f:
         f.write( '--------------TurbSim v2.00.* User Time Series Input File-----------------------\n')
