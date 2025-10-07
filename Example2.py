@@ -29,11 +29,11 @@ but additional inputs are now added to define the simulation setup. The new inpu
 
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
+import sys
 import os
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import FFCaseCreation # Main case creation class
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import modifyProperty # Helper functions 
 from openfast_toolbox.fastfarm.FASTFarmCaseCreation import check_files_exist, check_discon_library # Helper functions 
@@ -42,18 +42,23 @@ from openfast_toolbox.tools.strings import OK, FAIL # helper functions, colorful
 
 
 # **Adapt the path below if necessary for your machine. The paths can be relative or absolute.**
-# --- Windows
-ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
-tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
-libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dll' # relative or absolute path of ROSCO library
-# --- Linux
-# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
-# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
-# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.so' # relative or absolute path of ROSCO library
-# --- Mac
-# ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
-# tsbin = './turbsim'   # relative or absolute path of TurbSim executable
-# libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dylib' # relative or absolute path of ROSCO library
+if sys.platform.startswith("win"):
+    # --- Windows
+    ffbin = './FAST.Farm_x64_v4.1.2.exe' # relative or absolute path of FAST.Farm executable
+    tsbin = './TurbSim_x64_v4.1.2.exe'   # relative or absolute path of TurbSim executable
+    libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dll' # relative or absolute path of ROSCO library
+elif sys.platform.startswith("linux"):
+    # --- Linux
+    ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+    tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+    libdisconfilepath = './template/libdiscon_rosco_v2.9.0.so' # relative or absolute path of ROSCO library
+elif sys.platform == "darwin":
+    # --- Mac
+    ffbin = './FAST.Farm' # relative or absolute path of FAST.Farm executable
+    tsbin = './turbsim'   # relative or absolute path of TurbSim executable
+    libdisconfilepath = './template/libdiscon_rosco_v2.9.0.dylib' # relative or absolute path of ROSCO library
+else:
+    raise Exception("Unknown OS")
 
 check_files_exist(ffbin, tsbin);
 check_discon_library(libdisconfilepath);
